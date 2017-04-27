@@ -1,0 +1,65 @@
+####LIMPIEZA ####
+#En esta primera parte se eliminan los registros en una celda de aproximadamene 1km2 (0.00833333333 arcos de seg)
+library(raster)
+setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero")
+source("clean_dup.R")
+setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum")
+dir.create("CleanUp_1km")
+
+sp_files <- list.files("FormatoIUCN",pattern = "*.csv$",full.names = TRUE)
+#x <- sp_files[[2]]
+sps_mod <- lapply(sp_files, function(x){
+  occs <- read.csv(x,header = T)
+  print(occs$Binomial[1])
+  # Limpiar los duplicados en celda
+  clean_sp <- clean_dup(occs,"Dec_Long","Dec_Lat",threshold = 0.00833333333)
+  write.csv(clean_sp,file = paste0("CleanUp_1km/",clean_sp$Binomial[1],".csv"),row.names = FALSE)
+  return(occs)
+})
+
+#### Variables ambientales#### 
+setwd("H:/CoberturasRestringidas/DarwinCLIMA")
+clima<- stack(list.files("Clima",pattern="*.tif$",full.names = TRUE))
+landcover<- stack(list.files("LandCover",pattern="*.tif$",full.names = TRUE))
+topografia<-stack(list.files("Topografia",pattern="*.tif$",full.names = TRUE))
+suelo<-stack(list.files("Suelos",pattern="*.tif$",full.names = TRUE))
+
+
+#### VARIABLES + PRESENCIAS#### 
+setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum/CleanUp_1km")
+dir.create("extract")
+sp_files <- list.files(pattern = "*.csv$",full.names = TRUE)
+#x <- sp_files[[1]]
+sps_extr <- lapply(sp_files, function(x){
+  occs <- read.csv(x,header = T)
+  print(occs$Binomial[1])
+  coor<-c("Dec_Long","Dec_Lat")
+  sp_coor<-occs[coor]
+  extract_cl <- extract(clima,sp_coor)
+  extract_cl<-cbind(occs,extract_cl)
+  #rkeep<-is.na(combi$ai_yr,FALSE)
+  #combi<-combi[rkeep,]
+  write.csv(extract_cl,file = paste0("extract/",occs$Binomial[1],".csv"),row.names = FALSE)
+  return(occs)
+})
+
+####SELECCION DE VARIABLES####  
+# instalar y cargar el paquete fuzzySim (disponible en R-Forge):
+if (!require(fuzzySim)) install.packages("fuzzySim", repos = "http://R-Forge.R-project.org")
+library(fuzzySim)
+
+sp_files <- list.files("extract",pattern = "*.csv$",full.names = TRUE)
+#x <- sp_files[[1]]
+sps_vars <- lapply(sp_files, function(x){
+  datos <- read.csv(x,header = T)
+  # analizar las correlaciones de dos en dos, y combinadas con la significacion sobre la especie:
+  correlacion<-corSelect(data = datos, sp.cols = 3, var.cols = 22:ncol(datos), cor.thresh = 0.8, use = "pairwise.complete.obs")
+  #Seleccionar solo las variables no correlacionadas del stack de las variables
+  select_var<-as.data.frame(correlacion$selected.vars)
+  vars <- levels(select_var$"correlacion$selected.vars")
+  write.csv(vars,file = paste0("extract/",datos$Binomial[1],"_vars.csv"),row.names = FALSE)
+return(datos)
+})
+
+env=clima[[vars]]
+
