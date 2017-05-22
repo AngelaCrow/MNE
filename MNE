@@ -1,65 +1,111 @@
-####LIMPIEZA ####
-#En esta primera parte se eliminan los registros en una celda de aproximadamene 1km2 (0.00833333333 arcos de seg)
-library(raster)
+library("rgdal")
+library("raster")
+library("fuzzySim")
+library("ENMeval")
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero")
 source("clean_dup.R")
+
+set.seed(1)
+#Ruta en la que se encuentra el poligono para hacer M de cada especie
+shapePath <- "H:/CoberturasRestringidas/DarwinCLIMA"
+shapeFile <- "wwf_eco_mesoa"
+
+#En esta primera parte se eliminan los registros en una celda de aproximadamene 1km2 (0.00833333333 arcos de seg)
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum")
 dir.create("CleanUp_1km")
 
+####LIMPIEZA DE DUPLICADOS####
 sp_files <- list.files("FormatoIUCN",pattern = "*.csv$",full.names = TRUE)
-#x <- sp_files[[2]]
-sps_mod <- lapply(sp_files, function(x){
-  occs <- read.csv(x,header = T)
-  print(occs$Binomial[1])
-  # Limpiar los duplicados en celda
-  clean_sp <- clean_dup(occs,"Dec_Long","Dec_Lat",threshold = 0.00833333333)
-  write.csv(clean_sp,file = paste0("CleanUp_1km/",clean_sp$Binomial[1],".csv"),row.names = FALSE)
-  return(occs)
-})
+x <- sp_files[[3]]
+occs <- read.csv(x,header = T)
+print(occs$Binomial[1])
+clean_sp <- clean_dup(occs,"Dec_Long","Dec_Lat",threshold = 0.00833333333)
+write.csv(clean_sp,file = paste0("CleanUp_1km/",clean_sp$Binomial[1],".csv"),row.names = FALSE)
+rm(clean_sp, sp_files)
 
 #### Variables ambientales#### 
 setwd("H:/CoberturasRestringidas/DarwinCLIMA")
 clima<- stack(list.files("Clima",pattern="*.tif$",full.names = TRUE))
-landcover<- stack(list.files("LandCover",pattern="*.tif$",full.names = TRUE))
-topografia<-stack(list.files("Topografia",pattern="*.tif$",full.names = TRUE))
-suelo<-stack(list.files("Suelos",pattern="*.tif$",full.names = TRUE))
-
+##Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
+regionalizacion <- readOGR(shapePath, shapeFile)
+##Crear un entorno para rasterizar la M de cada especie
+r <- raster(ncol=clima@ncols, nrow=clima@nrows)
+extent(r) <- extent(clima)
 
 #### VARIABLES + PRESENCIAS#### 
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum/CleanUp_1km")
 dir.create("extract")
-sp_files <- list.files(pattern = "*.csv$",full.names = TRUE)
-#x <- sp_files[[1]]
-sps_extr <- lapply(sp_files, function(x){
-  occs <- read.csv(x,header = T)
-  print(occs$Binomial[1])
+  sp_files <- list.files(pattern = "*.csv$",full.names = TRUE)
   coor<-c("Dec_Long","Dec_Lat")
   sp_coor<-occs[coor]
   extract_cl <- extract(clima,sp_coor)
   extract_cl<-cbind(occs,extract_cl)
-  #rkeep<-is.na(combi$ai_yr,FALSE)
-  #combi<-combi[rkeep,]
-  write.csv(extract_cl,file = paste0("extract/",occs$Binomial[1],".csv"),row.names = FALSE)
-  return(occs)
-})
-
+  na_varname_index <- which(is.na(extract_cl$bio_1))
+  if(length(na_varname_index)>0L) extract_cl <- extract_cl[-na_varname_index,]
+  datos<-extract_cl
+  
+  write.csv(extract_cl,file = paste0("extract/",occs$Binomial[1],"_ext.csv"),row.names = FALSE)
+rm(na_varname_index, sp_coor)
 ####SELECCION DE VARIABLES####  
-# instalar y cargar el paquete fuzzySim (disponible en R-Forge):
-if (!require(fuzzySim)) install.packages("fuzzySim", repos = "http://R-Forge.R-project.org")
-library(fuzzySim)
+dir.create("variables")
 
-sp_files <- list.files("extract",pattern = "*.csv$",full.names = TRUE)
-#x <- sp_files[[1]]
-sps_vars <- lapply(sp_files, function(x){
-  datos <- read.csv(x,header = T)
+  print(dim(datos))
   # analizar las correlaciones de dos en dos, y combinadas con la significacion sobre la especie:
-  correlacion<-corSelect(data = datos, sp.cols = 3, var.cols = 22:ncol(datos), cor.thresh = 0.8, use = "pairwise.complete.obs")
+  correlacion<-corSelect(data = datos, sp.cols = 3, var.cols = 23:ncol(datos), cor.thresh = 0.8, use = "pairwise.complete.obs")
   #Seleccionar solo las variables no correlacionadas del stack de las variables
   select_var<-as.data.frame(correlacion$selected.vars)
-  vars <- levels(select_var$"correlacion$selected.vars")
-  write.csv(vars,file = paste0("extract/",datos$Binomial[1],"_vars.csv"),row.names = FALSE)
-return(datos)
-})
+  vars <- levels(select_var$`correlacion$selected.vars`)
+  env=clima[[vars]]
+  clima_sp=clima[[vars]]
+  
+  # Seleccionar el 70 de los datos para calibrar y el resto para validar
+  datos$cal_val <- NA
+  ncalibracion <- floor(dim(datos)[1]*0.7)
+  datos_cal <- sample(1:dim(datos)[1],size = ncalibracion)
+  datos$cal_val[datos_cal] <- 1
+  datos$cal_val[is.na(datos$cal_val)] <- 0
+  
+  ##Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
+  coordinates(extract_cl) <- ~Dec_Long+Dec_Lat
+  proj4string(extract_cl) <- proj4string(regionalizacion)
+  
+  #obtener los datos de los poligonos que tienen sitios de colecta
+  dataenpoly<-over(extract_cl, regionalizacion, fn=NULL)
+  enpolyindex<-which(!is.na(dataenpoly$ECO_NAME))
+  polydatadf<-dataenpoly[enpolyindex,]
+  id_polys<-unique(polydatadf$ECO_NAME)
+  poligonofilter<-regionalizacion[regionalizacion$ECO_NAME %in% id_polys,]
+  #recortamos el grid
+  clima_cr<-crop(clima,poligonofilter)
+  env<-mask(clima_cr, poligonofilter)
+  
+  ##Proceso de modelacion, primero separar los datos de calibracion y validacion
+  occs_train <- datos[datos$cal_val==1,]
+  occs_train<-occs_train[,9:10]
+  occs_train<-occs_train[c(2,1)]
+  occs_test <- datos[datos$cal_val==0,]
+  occs_test<-occs_test[,9:10]
+  occs_test<-occs_test[c(2,1)]
 
-env=clima[[vars]]
+sp <-ENMevaluate(occs_train, env, RMvalues = seq(0.5, 4, 0.5), 
+                       fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
+                       method = "randomkfold", kfolds = 4, bin.output = TRUE, 
+                       parallel = TRUE, numCores = 8)
 
+##elegir el modelo más parsimonioso
+modelo<-sp@models[[which (sp@results$delta.AICc == 0) ]]
+##tranferirlo a toda el area de estudio
+PrediccionMx <- predict(modelo, clima_sp)
+plot(PrediccionMx)
+
+dir.create("modelos")
+writeRaster(PrediccionMx,
+            paste0("C:/CONABIO/",
+                   datos$Binomial[1],".tif"),
+            overwrite=TRUE)
+
+
+##Validacion 
+#maximizacion TSS y KAPPA
+
+#Sensibilidad y especificidad
