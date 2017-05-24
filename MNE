@@ -9,6 +9,7 @@ set.seed(1)
 #Ruta en la que se encuentra el poligono para hacer M de cada especie
 shapePath <- "H:/CoberturasRestringidas/DarwinCLIMA"
 shapeFile <- "wwf_eco_mesoa"
+regionalizacion <- readOGR(shapePath, shapeFile)
 
 #En esta primera parte se eliminan los registros en una celda de aproximadamene 1km2 (0.00833333333 arcos de seg)
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum")
@@ -16,35 +17,30 @@ dir.create("CleanUp_1km")
 
 ####LIMPIEZA DE DUPLICADOS####
 sp_files <- list.files("FormatoIUCN",pattern = "*.csv$",full.names = TRUE)
-x <- sp_files[[3]]
+x <- sp_files[[2]]
 occs <- read.csv(x,header = T)
 print(occs$Binomial[1])
 clean_sp <- clean_dup(occs,"Dec_Long","Dec_Lat",threshold = 0.00833333333)
 write.csv(clean_sp,file = paste0("CleanUp_1km/",clean_sp$Binomial[1],".csv"),row.names = FALSE)
-rm(clean_sp, sp_files)
+rm(sp_files,occs)
 
 #### Variables ambientales#### 
 setwd("H:/CoberturasRestringidas/DarwinCLIMA")
 clima<- stack(list.files("Clima",pattern="*.tif$",full.names = TRUE))
-##Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
-regionalizacion <- readOGR(shapePath, shapeFile)
-##Crear un entorno para rasterizar la M de cada especie
-r <- raster(ncol=clima@ncols, nrow=clima@nrows)
-extent(r) <- extent(clima)
+
 
 #### VARIABLES + PRESENCIAS#### 
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum/CleanUp_1km")
 dir.create("extract")
-  sp_files <- list.files(pattern = "*.csv$",full.names = TRUE)
+  #sp_files <- list.files(pattern = "*.csv$",full.names = TRUE)
   coor<-c("Dec_Long","Dec_Lat")
-  sp_coor<-occs[coor]
+  sp_coor<-clean_sp[coor]
   extract_cl <- extract(clima,sp_coor)
-  extract_cl<-cbind(occs,extract_cl)
+  extract_cl<-cbind(clean_sp,extract_cl)
   na_varname_index <- which(is.na(extract_cl$bio_1))
   if(length(na_varname_index)>0L) extract_cl <- extract_cl[-na_varname_index,]
   datos<-extract_cl
   
-  write.csv(extract_cl,file = paste0("extract/",occs$Binomial[1],"_ext.csv"),row.names = FALSE)
 rm(na_varname_index, sp_coor)
 ####SELECCION DE VARIABLES####  
 dir.create("variables")
@@ -55,8 +51,10 @@ dir.create("variables")
   #Seleccionar solo las variables no correlacionadas del stack de las variables
   select_var<-as.data.frame(correlacion$selected.vars)
   vars <- levels(select_var$`correlacion$selected.vars`)
-  env=clima[[vars]]
-  clima_sp=clima[[vars]]
+  write.csv(vars,file = paste0("variables/",datos$Binomial[1],"_var.csv"),row.names = FALSE)
+  
+  clima_sp=clima[[vars]] #Variables de la especie sin recortar
+  rm(select_var, vars)
   
   # Seleccionar el 70 de los datos para calibrar y el resto para validar
   datos$cal_val <- NA
@@ -76,23 +74,34 @@ dir.create("variables")
   id_polys<-unique(polydatadf$ECO_NAME)
   poligonofilter<-regionalizacion[regionalizacion$ECO_NAME %in% id_polys,]
   #recortamos el grid
-  clima_cr<-crop(clima,poligonofilter)
-  env<-mask(clima_cr, poligonofilter)
+  clima_cr<-crop(clima_sp,poligonofilter)
+  env<-mask(clima_sp, poligonofilter) #M de la especie
+  rm(clima_cr)
   
-  ##Proceso de modelacion, primero separar los datos de calibracion y validacion
+  #Proceso de modelacion, primero separar los datos de calibracion y validacion
   occs_train <- datos[datos$cal_val==1,]
   occs_train<-occs_train[,9:10]
   occs_train<-occs_train[c(2,1)]
   occs_test <- datos[datos$cal_val==0,]
   occs_test<-occs_test[,9:10]
   occs_test<-occs_test[c(2,1)]
-
-sp <-ENMevaluate(occs_train, env, RMvalues = seq(0.5, 4, 0.5), 
+#Bckground
+ dir.create("outputs")
+  bg <- randomPoints(env[[1]], n=10000)
+  bg <- as.data.frame(bg)
+  plot(env[[1]], legend=FALSE)
+  points(bg, col='red')
+  write.csv(bg,file = paste0("outputs/",datos$Binomial[1],"_bg.csv"),row.names = FALSE)
+  
+#Correr ENMeval
+  sp <-ENMevaluate(occs_train, env, RMvalues = seq(0.5, 4, 0.5), 
                        fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
                        method = "randomkfold", kfolds = 4, bin.output = TRUE, 
                        parallel = TRUE, numCores = 8)
 
 ##elegir el modelo más parsimonioso
+resultados_enmeval<-sp@results
+write.csv(resultados_enmeval,file = paste0("outputs/",datos$Binomial[1],"_var.csv"),row.names = FALSE)
 modelo<-sp@models[[which (sp@results$delta.AICc == 0) ]]
 ##tranferirlo a toda el area de estudio
 PrediccionMx <- predict(modelo, clima_sp)
