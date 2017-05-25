@@ -82,12 +82,12 @@ rm(select_var, vars)
   
 #MAXENT#
   #Proceso de modelacion, primero separar los datos de calibracion y validacion
-  occs_train <- datos[datos$cal_val==1,]
-  occs_train<-occs_train[,9:10]
-  occs_train<-occs_train[c(2,1)]
-  occs_test <- datos[datos$cal_val==0,]
-  occs_test<-occs_test[,9:10]
-  occs_test<-occs_test[c(2,1)]
+  occs_cal <- datos[datos$cal_val==1,]
+  occs_cal<-occs_cal[,9:10]
+  occs_cal<-occs_cal[c(2,1)]
+  occs_val <- datos[datos$cal_val==0,]
+  occs_val<-occs_val[,9:10]
+  occs_val<-occs_val[c(2,1)]
 #Background
  dir.create("outputs")
   bg <- randomPoints(env[[1]], n=10000)
@@ -97,7 +97,7 @@ rm(select_var, vars)
 write.csv(bg.df,file = paste0("outputs/",datos$Binomial[1],"_bg.csv"),row.names = FALSE)
   
 #ENMeval
-sp <-ENMevaluate(occs_train, env, bg.df, RMvalues = seq(0.5, 4, 0.5), 
+sp <-ENMevaluate(occs_cal, env, bg.df, RMvalues = seq(0.5, 4, 0.5), 
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
                  method = "randomkfold", kfolds = 4, bin.output = TRUE, 
                  parallel = TRUE, numCores = 8)
@@ -107,6 +107,8 @@ sp <-ENMevaluate(occs_train, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
 resultados_enmeval<-sp@results
 write.csv(resultados_enmeval,file = paste0("outputs/",datos$Binomial[1],"_enmeval.csv"),row.names = FALSE)
 delta_aic<-which (resultados_enmeval$delta.AICc == 0)
+
+####ENM EN RASTER####
 ##seleccionar raster del modelo más parsomonioso
 predictions<-sp@predictions
 modelo.delta.aic<-predictions[[delta_aic]]
@@ -122,7 +124,6 @@ mapa.en.m <- predict(modelo.maxent, env)
 #plot(mapa.en.m)
 writeRaster(mapa.en.m,paste0("outputs/", datos$Binomial[1],"_in_mlog.tif"),overwrite=TRUE)
 
-
 ##tranferirlo a otro tiempo o area mas grande
 mapa.area.grande <- predict(modelo.maxent, clima_sp)
 #plot(mapa.area.grande)
@@ -132,7 +133,7 @@ writeRaster(mapa.area.grande, paste0("outputs/",datos$Binomial[1],"_log.tif"),ov
 ####VALIDACION####
 #Independiente de umbral
 #AUC
-testpp <- extract(mapa.en.m, occs_test)
+testpp <- extract(mapa.en.m, occs_val)
 abs <- extract(mapa.en.m, bg.df)
 combined <- c(testpp, abs)       
 label <- c(rep(1,length(testpp)),rep(0,length(abs)))  
@@ -140,10 +141,12 @@ pred <- prediction(combined, label)
 perf <- performance(pred, "tpr", "fpr")               
 auc <- performance(pred, "auc")@y.values[[1]]       
 auc                      
+write.csv(auc,file = paste0("outputs/",datos$Binomial[1],"_auc.csv"),row.names = FALSE)
 
 #Dependiente de umbral
+source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(extract(mapa.en.m, occs_train)) 
+rcl.m <- na.omit(extract(mapa.en.m, occs_cal)) 
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min<-min(rcl.m) # extraer el minimo valor de presencia
@@ -154,6 +157,5 @@ rcl.10 <- quantile(na.omit(rcl.m),.10)
 mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf,rcl.10,0,rcl.10,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
 writeRaster(mapa.en.m.bin10, paste0("outputs/",datos$Binomial[1],"_bin_10.tif"),overwrite=TRUE)
 #plot(mapa.en.m.bin)
-#maximizacion TSS y KAPPA
 
-#Sensibilidad y especificidad
+##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R. 
