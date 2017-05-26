@@ -4,7 +4,9 @@ library("fuzzySim")
 library("ENMeval")
 library("ROCR")
 
-#' Funcion para crear un archivo sin registros duplicados 
+source("utils/clean_dup.R")
+
+#' Funcion para crear un archivo sin registros duplicados
 #'
 #' @param csvFilePath Ruta del archivo de registros en formato csv
 #' @param outCsvFilePath Ruta del archivo donde se guardaran los resultados
@@ -31,7 +33,7 @@ CreateCleanData <- function(csvFilePath, outCsvFilePath = "",
 
 
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero")
-source("clean_dup.R")
+
 
 set.seed(1)
 #Ruta en la que se encuentra el poligono para hacer M de cada especie
@@ -174,7 +176,7 @@ write.csv(auc,file = paste0("outputs/",datos$Binomial[1],"_auc.csv"),row.names =
 #Dependiente de umbral
 source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(extract(mapa.en.m, occs_cal)) 
+rcl.m <- na.omit(extract(mapa.en.m, occs_cal))
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min<-min(rcl.m) # extraer el minimo valor de presencia
@@ -186,4 +188,4 @@ mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf,rcl.10,0,rcl.10,Inf,1)) # reclas
 writeRaster(mapa.en.m.bin10, paste0("outputs/",datos$Binomial[1],"_bin_10.tif"),overwrite=TRUE)
 #plot(mapa.en.m.bin)
 
-##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R. 
+##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R.
