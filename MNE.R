@@ -1,6 +1,6 @@
 library("rgdal")
 library("raster")
-library("fuzzySim")
+#library("fuzzySim")
 library("ENMeval")
 library("ROCR")
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero")
@@ -25,12 +25,12 @@ clean_sp <- clean_dup(occs,"Dec_Long","Dec_Lat",threshold = 0.00833333333)
 write.csv(clean_sp,file = paste0("CleanUp_1km/",clean_sp$Binomial[1],".csv"),row.names = FALSE)
 rm(sp_files,occs)
 
-#### VARIABLES AMBIENTALES#### 
+#### VARIABLES AMBIENTALES####
 setwd("H:/CoberturasRestringidas/DarwinCLIMA")
 clima<- stack(list.files("Clima",pattern="*.tif$",full.names = TRUE))
 
 
-#### VARIABLES + PRESENCIAS#### 
+#### VARIABLES + PRESENCIAS####
 setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum/CleanUp_1km")
 dir.create("extract")
   #sp_files <- list.files(pattern = "*.csv$",full.names = TRUE)
@@ -43,7 +43,7 @@ dir.create("extract")
   datos<-extract_cl
 rm(na_varname_index, sp_coor)
 
-####SELECCION DE VARIABLES####  
+####SELECCION DE VARIABLES####
 dir.create("variables")
 
   print(dim(datos))
@@ -53,10 +53,10 @@ dir.create("variables")
   select_var<-as.data.frame(correlacion$selected.vars)
   vars <- levels(select_var$`correlacion$selected.vars`)
   write.csv(vars,file = paste0("variables/",datos$Binomial[1],"_var.csv"),row.names = FALSE)
-  
+
   clima_sp=clima[[vars]] #Variables de la especie sin recortar
 rm(select_var, vars)
-  
+
 ####CALIBRACION####
   # Seleccionar el 70 de los datos para calibrar y el resto para validar
   datos$cal_val <- NA
@@ -64,11 +64,11 @@ rm(select_var, vars)
   datos_cal <- sample(1:dim(datos)[1],size = ncalibracion)
   datos$cal_val[datos_cal] <- 1
   datos$cal_val[is.na(datos$cal_val)] <- 0
-  
+
   ##Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
   coordinates(extract_cl) <- ~Dec_Long+Dec_Lat
   proj4string(extract_cl) <- proj4string(regionalizacion)
-  
+
   #obtener los datos de los poligonos que tienen sitios de colecta
   dataenpoly<-over(extract_cl, regionalizacion, fn=NULL)
   enpolyindex<-which(!is.na(dataenpoly$ECO_NAME))
@@ -79,7 +79,7 @@ rm(select_var, vars)
   clima_cr<-crop(clima_sp,poligonofilter)
   env<-mask(clima_sp, poligonofilter) #M de la especie
   rm(clima_cr)
-  
+
 #MAXENT#
   #Proceso de modelacion, primero separar los datos de calibracion y validacion
   occs_train <- datos[datos$cal_val==1,]
@@ -95,13 +95,13 @@ rm(select_var, vars)
   #plot(env[[1]], legend=FALSE)
   #points(bg.df, col='red')
 write.csv(bg.df,file = paste0("outputs/",datos$Binomial[1],"_bg.csv"),row.names = FALSE)
-  
+
 #ENMeval
-sp <-ENMevaluate(occs_train, env, bg.df, RMvalues = seq(0.5, 4, 0.5), 
+sp <-ENMevaluate(occs_train, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                 method = "randomkfold", kfolds = 4, bin.output = TRUE, 
+                 method = "randomkfold", kfolds = 4, bin.output = TRUE,
                  parallel = TRUE, numCores = 8)
-  
+
 
 ##identificar el nombre del modelo más parsimonioso
 resultados_enmeval<-sp@results
@@ -110,10 +110,10 @@ delta_aic<-which (resultados_enmeval$delta.AICc == 0)
 ##seleccionar raster del modelo más parsomonioso
 predictions<-sp@predictions
 modelo.delta.aic<-predictions[[delta_aic]]
-writeRaster(modelo.delta.aic,paste0("outputs/", datos$Binomial[1],"_in_m.tif"), 
+writeRaster(modelo.delta.aic,paste0("outputs/", datos$Binomial[1],"_in_m.tif"),
             overwrite=TRUE)
 
-#elegir los parametros de maxent del modelo más parsimonioso y 
+#elegir los parametros de maxent del modelo más parsimonioso y
 #proyectar a otras variables
 modelo.maxent<-sp@models[[which (sp@results$delta.AICc == 0) ]]
 
@@ -134,16 +134,16 @@ writeRaster(mapa.area.grande, paste0("outputs/",datos$Binomial[1],"_log.tif"),ov
 #AUC
 testpp <- extract(mapa.en.m, occs_test)
 abs <- extract(mapa.en.m, bg.df)
-combined <- c(testpp, abs)       
-label <- c(rep(1,length(testpp)),rep(0,length(abs)))  
-pred <- prediction(combined, label)   
-perf <- performance(pred, "tpr", "fpr")               
-auc <- performance(pred, "auc")@y.values[[1]]       
-auc                      
+combined <- c(testpp, abs)
+label <- c(rep(1,length(testpp)),rep(0,length(abs)))
+pred <- prediction(combined, label)
+perf <- performance(pred, "tpr", "fpr")
+auc <- performance(pred, "auc")@y.values[[1]]
+auc
 
 #Dependiente de umbral
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(extract(mapa.en.m, occs_train)) 
+rcl.m <- na.omit(extract(mapa.en.m, occs_train))
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min<-min(rcl.m) # extraer el minimo valor de presencia
