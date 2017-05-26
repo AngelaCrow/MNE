@@ -1,0 +1,251 @@
+TO DO:
+
+* multGLM:
+- eliminate call to 'attach'
+
+* stepByStep:
+- implement 'direction = both'
+
+
+============================================
+fuzzySim v1.7.9 (committed 2017-03-27)
+============================================
+
+## Modified functions:
+
+* multGLM:
+- fixed bug when only one variabe passed to corSelect
+
+* corSelect:
+- added check that 'data' is not missing and is a data frame
+- help file now states that corSelect is included as option in multGLM
+- added 'use = "pairwise.complete.obs"' to examples
+
+* PDF manual: 
+- reduced several code line lengths to avoid overboard
+
+
+============================================
+fuzzySim v1.7.8 (committed 2016-09-15)
+============================================
+
+## Removed empty sections from .Rd files
+
+## Modified functions:
+
+* fuzzyRangeChange:
+- underscore replaced with space in measure names
+- x axis labels plotted instead of legend
+- 'col' no longer supplied by default
+
+
+============================================
+fuzzySim v1.7.7 (committed 2016-08-01)
+============================================
+
+## Modified functions:
+
+* pairwiseRangemaps:
+- argument 'chunks' replaced with 'nchunks' for operative reasons
+- added 'subchunks' argument for continuing interrupted runs
+
+
+============================================
+fuzzySim v1.7.6 (committed 2016-05-05)
+============================================
+
+## Modified functions:
+
+* corSelect:
+- removed error when no corrs above threshold
+- sp.cols now NULL by default (to avoid error when missing)
+
+* multGLM:
+- FDR correction reverted to "fdr" by default
+
+
+============================================
+fuzzySim v1.7.5 (committed 2016-04-26)
+============================================
+
+## Modified functions:
+
+* FDR:
+- BIC now also provided
+
+* corSelect:
+- BIC now included as selection criterion
+
+* multGLM:
+- added "select" argument (for 'step') - AIC or BIC
+
+
+============================================
+fuzzySim v1.7.4 (committed 2016-04-15)
+============================================
+
+## Modified functions:
+
+* multGLM:
+- FDR correction now "BY" by default
+
+
+============================================
+fuzzySim v1.7.3 (committed 2016-04-12)
+============================================
+
+## Modified functions:
+
+* corSelect:
+- error message when length(sp.cols) > 1
+- message about excluded missing data
+- added option sp.cols=NULL to get only high.cor.mat
+
+* multGLM:
+- added 'correction' argument to pass to 'FDR'
+
+
+============================================
+fuzzySim v1.7.2 (committed 2016-03-22)
+============================================
+
+## Modified functions:
+
+* fuzzyRangeChange:
+- user can now choose which measures to calculate
+- 'loss' now reported as originally negative
+- results provided also as a barplot
+
+
+============================================
+fuzzySim v1.7.1 (committed 2016-03-17)
+============================================
+
+## Modified functions:
+
+* multTSA:
+- eliminated call to 'attach'
+
+
+============================================
+fuzzySim v1.7 (committed 2016-02-12)
+============================================
+
+## New functions:
+
+* pairwiseRangemaps (calculate area of pairwise intersection and union between rangemaps)
+
+* rangemapSim (calculate  rangemap similarity using common similarity indices)
+
+
+============================================
+fuzzySim v1.6.3 (committed 2015-12-02)
+============================================
+
+## Modified functions:
+
+* FDR:
+- now uses only finite sp.col values
+
+
+============================================
+fuzzySim v1.6.2 (committed 2015-11-23)
+============================================
+
+## Modified functions:
+
+* fuzzyRangeChange:
+- corrected proportional changes to be relative to reference range size, not total study area
+- replaced "stable" with "stable presence" and added (fuzzy equivalent of) "stable absence"
+- replaced "change" with "balance" (overall loss/gain, not amount of changed cells)
+- result is now data frame, not named vector
+
+* distPres:
+- now allows NA values
+
+
+============================================
+fuzzySim v1.6.1 (committed 2015-11-13)
+============================================
+
+## Modified functions:
+
+* fuzzyOverlay:
+- added arguments 'prop = TRUE' and 'overlay.cols = 1:ncol(data)'
+- result now includes 4 (not 8) values, either sum or proportion
+- result is now a named vector instead of a list
+- 'na.rm' now TRUE by default
+
+* fuzSim: 
+- added argument 'na.rm = TRUE'
+
+* multGLM: 
+- bug corrected in corSelect (was reporting but not really eliminating variables)
+- suppressMessages in corSelect
+
+
+## Modified help files:
+
+* fuzzyOverlay: modifications reflecting function changes
+
+* modOverlap: example now provided
+
+* fuzzyOverlay, fuzzyRangeChange, modOverlap:
+- examples containing 'jitter' corrected to avoid values outside the [0, 1] interval
+
+* fuzSim: 
+- examples now provided also for similarity between fuzzy data
+- tables of significance for Jaccard and Baroni's indices now referred
+
+
+============================================
+fuzzySim v1.6 (committed 2015-11-03)
+============================================
+
+## New functions:
+
+* fuzzyOverlay (calculate row-wise intersection, union, expansion, contraction or consensus among continuous model predictions)
+
+* fuzzyRangeChange (calculate overal loss, gain, and maintenance of favourability between models)
+
+
+============================================
+fuzzySim v1.5 (committed 2015-10-29)
+============================================
+
+## New functions:
+
+* corSelect (select among correlated variables based on their bivariate relationship with the response)
+
+* modOverlap (asses the total overlap between model predictions using niche comparison metrics)
+
+
+## Modified functions:
+
+* multGLM:
+- 'corSelect' now included as additional option for variable selection
+
+* FDR:
+- AIC now also calculated
+- 'model.type' deprecated
+- 'family = "auto"' by default
+- 'simplif' argument added
+
+
+============================================
+previous edits (that I can remember)
+============================================
+
+## Modified functions:
+
+* multicol:
+- 'model' argument added (user can provide a model object instead of a set of variables)
+- variables in output are now ordered according to VIF
+
+* simFromSetOps:
+- the similarity index used is now mentioned in a message
+
+* FDR:
+- data input format changed, with former parameters 'response' and 'predictors' replaced with 'data', 'sp.cols' and 'var.cols' (for coherence and compatibility with 'multGLM' function)
+
+
