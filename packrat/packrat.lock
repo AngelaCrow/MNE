@@ -36,6 +36,11 @@ Version: 1.17.1
 Hash: 97cb6f6293cd18d17df77a6383cc6763
 Requires: bitops
 
+Package: data.table
+Source: CRAN
+Version: 1.10.4
+Hash: 2c7c47ccb40d01c7b214c8eff818108d
+
 Package: dismo
 Source: CRAN
 Version: 1.1-4
