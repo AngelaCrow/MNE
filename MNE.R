@@ -1,191 +1,201 @@
 library("rgdal")
-library("raster")
 library("fuzzySim")
 library("ENMeval")
 library("ROCR")
+library("magrittr")
+library("dplyr")
+library("tools")
+library("data.table")
+library("raster")
 
 source("utils/clean_dup.R")
-
-#' Funcion para crear un archivo sin registros duplicados
-#'
-#' @param csvFilePath Ruta del archivo de registros en formato csv
-#' @param outCsvFilePath Ruta del archivo donde se guardaran los resultados
-#' @param longColumnName Nombre de la columna donde se encuentra la longitud
-#' @param latColumnName Nombre de la columna donde se encuentra la latitud
-#' @param threshold Máxima distancia entre puntos para que se consideren
-#'                  duplicados
-#' @return Ruta del archivo con los registros limpios
-CreateCleanData <- function(csvFilePath, outCsvFilePath = "",
-                            longColumnName, latColumnName,
-                            threshold = 0.00833333333) {
-  data <- read.csv(csvFilePath, header = TRUE)
-  data_clean <- clean_dup(data, longColumnName, latColumnName, threshold)
-
-  if (outCsvFilePath == "") {
-    outCsvFilePath <- paste0(tools::file_path_sans_ext(csvFilePath),
-                             "_clean.csv")
-  }
-
-  write.csv(data_clean, file = outCsvFilePath, row.names = FALSE)
-
-  return(outCsvFilePath)
-}
-
-
-setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero")
-
+source("utils/utilidades.R")
 
 set.seed(1)
-#Ruta en la que se encuentra el poligono para hacer M de cada especie
-shapePath <- "H:/CoberturasRestringidas/DarwinCLIMA"
-shapeFile <- "wwf_eco_mesoa"
-regionalizacion <- readOGR(shapePath, shapeFile)
 
-#En esta primera parte se eliminan los registros en una celda de aproximadamene 1km2 (0.00833333333 arcos de seg)
-setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum")
-dir.create("CleanUp_1km")
+args = commandArgs(trailingOnly = TRUE)
+if (length(args) == 0) {
+  stop("Al menos un parametro es requerido (input file).\n", call. = FALSE)
+} else if (length(args) == 1) {
+  print(paste("Se calcula el modelo para", args[1]))
+} else {
+  stop("Solo se acepta un parametro.\n", call. = FALSE)
+}
+
+# Configuracion de folders da datos
+baseDataFolder <- "../IUCN_data"
+
+# Ruta en la que se encuentra el poligono para hacer M de cada especie
+shapePath <- file.path(baseDataFolder, 'shapes/wwf_eco_mesoa.shp')
+shapeLayer <- "wwf_eco_mesoa"
+regionalizacion <- readOGR(shapePath, shapeLayer)
+
+# Directorio de covariables
+covarDataFolder <- file.path(baseDataFolder, "covar_rasters")
+
+inputDataFile <- args[1]
+outputFolder <- inputDataFile %>%
+  basename %>%
+  file_path_sans_ext
+
+if (!dir.exists(outputFolder)) {
+  dir.create(outputFolder, recursive = TRUE)
+}
 
 ####LIMPIEZA DE DUPLICADOS####
-sp_files <- list.files("FormatoIUCN",pattern = "*.csv$",full.names = TRUE)
-x <- sp_files[[2]]
-occs <- read.csv(x,header = T)
-print(occs$Binomial[1])
-clean_sp <- clean_dup(occs,"Dec_Long","Dec_Lat",threshold = 0.00833333333)
-write.csv(clean_sp,file = paste0("CleanUp_1km/",clean_sp$Binomial[1],".csv"),row.names = FALSE)
-rm(sp_files,occs)
+occsData <- read.csv(inputDataFile, header = TRUE, stringsAsFactors = FALSE) %>%
+  clean_dup("Dec_Long", "Dec_Lat", 0.00833333333)
+
+write.csv(occsData,
+          file = file.path(outputFolder, "clean_data.csv"),
+          row.names = FALSE)
 
 #### VARIABLES AMBIENTALES####
-setwd("H:/CoberturasRestringidas/DarwinCLIMA")
-clima<- stack(list.files("Clima",pattern="*.tif$",full.names = TRUE))
-
+covarFileList <- list_files_with_exts(covarDataFolder, "tif")
+clima <- raster::stack(covarFileList)
 
 #### VARIABLES + PRESENCIAS####
-setwd("J:/USUARIOS/DarwinUICN/reuniones_talleres/taller lista roja/Resultados_TLR/Mapas_validos/MapasValidosPorGenero/Capsicum/CleanUp_1km")
-dir.create("extract")
-#sp_files <- list.files(pattern = "*.csv$",full.names = TRUE)
-coor<-c("Dec_Long","Dec_Lat")
-sp_coor<-clean_sp[coor]
-extract_cl <- extract(clima,sp_coor)
-extract_cl<-cbind(clean_sp,extract_cl)
-na_varname_index <- which(is.na(extract_cl$bio_1))
-if(length(na_varname_index)>0L) extract_cl <- extract_cl[-na_varname_index,]
-datos<-extract_cl
-rm(na_varname_index, sp_coor)
+sp_coor <- occsData[c("Dec_Long", "Dec_Lat")]
+
+covarData <- raster::extract(clima, sp_coor)
+covarData <- cbind(occsData, covarData)
+
+covarData <- covarData[!is.na(covarData$bio_1), ]
 
 ####SELECCION DE VARIABLES####
-dir.create("variables")
+speciesCol <- match("Presence", names(occsData))
+varCols <- ncol(occsData) + 1
 
-print(dim(datos))
-# analizar las correlaciones de dos en dos, y combinadas con la significacion sobre la especie:
-correlacion<-corSelect(data = datos, sp.cols = 3, var.cols = 23:ncol(datos), cor.thresh = 0.8, use = "pairwise.complete.obs")
-#Seleccionar solo las variables no correlacionadas del stack de las variables
-select_var<-as.data.frame(correlacion$selected.vars)
-vars <- levels(select_var$`correlacion$selected.vars`)
-write.csv(vars,file = paste0("variables/",datos$Binomial[1],"_var.csv"),row.names = FALSE)
+correlacion <- corSelect(
+  data = covarData,
+  sp.cols = speciesCol,
+  var.cols = varCols:ncol(covarData),
+  cor.thresh = 0.8,
+  use = "pairwise.complete.obs"
+)
 
-clima_sp=clima[[vars]] #Variables de la especie sin recortar
-rm(select_var, vars)
+select_var <- correlacion$selected.vars
+climaImportantes <- clima[[select_var]]
 
 ####CALIBRACION####
 # Seleccionar el 70 de los datos para calibrar y el resto para validar
-datos$cal_val <- NA
-ncalibracion <- floor(dim(datos)[1]*0.7)
-datos_cal <- sample(1:dim(datos)[1],size = ncalibracion)
-datos$cal_val[datos_cal] <- 1
-datos$cal_val[is.na(datos$cal_val)] <- 0
+sampleDataPoints <- sample.int(
+  nrow(covarData),
+  size = floor(0.7*nrow(covarData))
+)
 
-##Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
-coordinates(extract_cl) <- ~Dec_Long+Dec_Lat
-proj4string(extract_cl) <- proj4string(regionalizacion)
+selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
-#obtener los datos de los poligonos que tienen sitios de colecta
-dataenpoly<-over(extract_cl, regionalizacion, fn=NULL)
-enpolyindex<-which(!is.na(dataenpoly$ECO_NAME))
-polydatadf<-dataenpoly[enpolyindex,]
-id_polys<-unique(polydatadf$ECO_NAME)
-poligonofilter<-regionalizacion[regionalizacion$ECO_NAME %in% id_polys,]
-#recortamos el grid
-clima_cr<-crop(clima_sp,poligonofilter)
-env<-mask(clima_sp, poligonofilter) #M de la especie
-rm(clima_cr)
+covarData$isTrain <- selectedValues
 
-#MAXENT#
-#Proceso de modelacion, primero separar los datos de calibracion y validacion
-occs_cal <- datos[datos$cal_val==1,]
-occs_cal<-occs_cal[,9:10]
-occs_cal<-occs_cal[c(2,1)]
-occs_val <- datos[datos$cal_val==0,]
-occs_val<-occs_val[,9:10]
-occs_val<-occs_val[c(2,1)]
+# Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
+coordinates(sp_coor) <- ~Dec_Long+Dec_Lat
+proj4string(sp_coor) <- proj4string(regionalizacion)
 
-#Background
-dir.create("outputs")
-bg <- randomPoints(env[[1]], n=10000)
+# obtener los datos de los poligonos que tienen sitios de colecta
+dataenpoly <- over(sp_coor, regionalizacion, fn = NULL)
+enpolyindex <- which(!is.na(dataenpoly$ECO_NAME))
+polydatadf <- dataenpoly[enpolyindex, ]
+id_polys <- unique(polydatadf$ECO_NAME)
+poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
+# recortamos el grid
+# climaImportantesRecortadas <- crop(climaImportantes, poligonofilter)
+env <- mask(climaImportantes, poligonofilter) #M de la especie
+
+# MAXENT
+# Proceso de modelacion, primero separar los datos de calibracion y validacion
+occsCalibracion <- covarData %>%
+  dplyr::filter(isTrain == 1) %>%
+  dplyr::select(Dec_Long, Dec_Lat)
+
+occsValidacion <- covarData %>%
+  dplyr::filter(isTrain == 0) %>%
+  dplyr::select(Dec_Long, Dec_Lat) %>%
+  as.data.frame
+
+# Background
+# bg <- randomPoints(env[[1]], n = 10000)
+bg <- randomPoints(env[[1]], n = 100)
 bg.df <- as.data.frame(bg)
-#plot(env[[1]], legend=FALSE)
-#points(bg.df, col='red')
-write.csv(bg.df,file = paste0("outputs/",datos$Binomial[1],"_bg.csv"),row.names = FALSE)
+pdf(file = file.path(outputFolder, "env_plot.pdf"))
+  plot(env[[1]], legend = FALSE)
+  points(bg.df, col = 'red')
+dev.off()
+write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
+          row.names = FALSE)
 
-#ENMeval
-sp <-ENMevaluate(occs_cal, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
+# ENMeval
+sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
                  method = "randomkfold", kfolds = 4, bin.output = TRUE,
-                 parallel = TRUE, numCores = 8)
+                 parallel = TRUE, numCores = parallel::detectCores())
 
+# identificar el nombre del modelo más parsimonioso
+resultados_enmeval <- sp@results
+write.csv(resultados_enmeval,
+          file = file.path(outputFolder, "resultados_enmeval.csv")
+          ,row.names = FALSE)
+delta_aic <- which(resultados_enmeval$delta.AICc == 0)
+#
+# ENM EN RASTER
+# seleccionar raster del modelo más parsomonioso
+predictions <- sp@predictions
+modelo.delta.aic <- predictions[[delta_aic]]
+writeRaster(modelo.delta.aic,
+            file.path(outputFolder, "ENM_in_m.tif"),
+            overwrite = TRUE)
 
-##identificar el nombre del modelo más parsimonioso
-resultados_enmeval<-sp@results
-write.csv(resultados_enmeval,file = paste0("outputs/",datos$Binomial[1],"_enmeval.csv"),row.names = FALSE)
-delta_aic<-which (resultados_enmeval$delta.AICc == 0)
+# elegir los parametros de maxent del modelo más parsimonioso y
+# proyectar a otras variables
+modelo.maxent <- sp@models[[delta_aic]]
 
-####ENM EN RASTER####
-##seleccionar raster del modelo más parsomonioso
-predictions<-sp@predictions
-modelo.delta.aic<-predictions[[delta_aic]]
-writeRaster(modelo.delta.aic,paste0("outputs/", datos$Binomial[1],"_in_m.tif"),
-            overwrite=TRUE)
-
-#elegir los parametros de maxent del modelo más parsimonioso y
-#proyectar a otras variables
-modelo.maxent<-sp@models[[which (sp@results$delta.AICc == 0) ]]
-
-##Raster del modelo en la M, en escala logistica
+# Raster del modelo en la M, en escala logistica
 mapa.en.m <- predict(modelo.maxent, env)
 #plot(mapa.en.m)
-writeRaster(mapa.en.m,paste0("outputs/", datos$Binomial[1],"_in_mlog.tif"),overwrite=TRUE)
+writeRaster(mapa.en.m,
+            file.path(outputFolder, "ENM_in_mlog.tif"),
+            overwrite = TRUE)
 
 ##tranferirlo a otro tiempo o area mas grande
-mapa.area.grande <- predict(modelo.maxent, clima_sp)
+mapa.area.grande <- predict(modelo.maxent, climaImportantes)
 #plot(mapa.area.grande)
-writeRaster(mapa.area.grande, paste0("outputs/",datos$Binomial[1],"_log.tif"),overwrite=TRUE)
+writeRaster(mapa.area.grande,
+            file.path(outputFolder, "ENM_log.tif"),
+            overwrite = TRUE)
 
 
 ####VALIDACION####
 #Independiente de umbral
 #AUC
-testpp <- extract(mapa.en.m, occs_val)
-abs <- extract(mapa.en.m, bg.df)
+testpp <- raster::extract(mapa.en.m, occsValidacion)
+abs <- raster::extract(mapa.en.m, bg.df)
 combined <- c(testpp, abs)
 label <- c(rep(1,length(testpp)),rep(0,length(abs)))
 pred <- prediction(combined, label)
 perf <- performance(pred, "tpr", "fpr")
 auc <- performance(pred, "auc")@y.values[[1]]
-auc
-write.csv(auc,file = paste0("outputs/",datos$Binomial[1],"_auc.csv"),row.names = FALSE)
 
-#Dependiente de umbral
-source("funciones_LAE.R")
+write.csv(auc,
+          file = file.path(outputFolder, "data_auc.csv"),
+          row.names = FALSE)
+
+# #Dependiente de umbral
+# source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(extract(mapa.en.m, occs_cal))
-
+rcl.m <- na.omit(raster::extract(mapa.en.m, occsCalibracion))
+#
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
-rcl.min<-min(rcl.m) # extraer el minimo valor de presencia
-mapa.en.m.bin <- reclassify(mapa.en.m, c(-Inf,rcl.min,0,rcl.min,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin, paste0("outputs/",datos$Binomial[1],"_bin_min.tif"),overwrite=TRUE)
+rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
+mapa.en.m.bin <- reclassify(mapa.en.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mapa.en.m.bin,
+            file.path(outputFolder, "ENM_bin_min.tif"),
+            overwrite = TRUE)
 #10 percentil
 rcl.10 <- quantile(na.omit(rcl.m),.10)
-mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf,rcl.10,0,rcl.10,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin10, paste0("outputs/",datos$Binomial[1],"_bin_10.tif"),overwrite=TRUE)
+mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mapa.en.m.bin10,
+            file.path(outputFolder, "ENM_bin_10.tif"),
+            overwrite = TRUE)
 #plot(mapa.en.m.bin)
-
-##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R.
+#
+# ##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R.
