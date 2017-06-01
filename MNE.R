@@ -75,6 +75,7 @@ correlacion <- corSelect(
 )
 
 select_var <- correlacion$selected.vars
+write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
 climaImportantes <- clima[[select_var]]
 
 ####CALIBRACION####
@@ -114,8 +115,8 @@ occsValidacion <- covarData %>%
   as.data.frame
 
 # Background
-# bg <- randomPoints(env[[1]], n = 10000)
-bg <- randomPoints(env[[1]], n = 100)
+bg <- randomPoints(env[[1]], n = 10000)
+# bg <- randomPoints(env[[1]], n = 100)
 bg.df <- as.data.frame(bg)
 pdf(file = file.path(outputFolder, "env_plot.pdf"))
   plot(env[[1]], legend = FALSE)
