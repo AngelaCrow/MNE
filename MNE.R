@@ -9,7 +9,6 @@ library("data.table")
 library("raster")
 
 source("utils/clean_dup.R")
-source("utils/utilidades.R")
 
 set.seed(1)
 

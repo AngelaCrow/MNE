@@ -6,7 +6,6 @@ especieData[,
             data.table::fwrite(
               .SD,
               file.path(outputDataFolder,
-                paste0("data_",
-                       gsub('([[:punct:]])|\\s+','_', Binomial),
+                paste0(gsub('([[:punct:]])|\\s+','_', Binomial),
                        ".csv"))),
             by = .(Binomial)]
