@@ -189,14 +189,19 @@ mapa.area.grande
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min<-min(rcl.m) # extraer el minimo valor de presencia
+
 mapa.en.m.bin <- reclassify(mapa.en.m, c(-Inf,rcl.min,0,rcl.min,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
 writeRaster(mapa.en.m.bin, paste0("outputs/",datos$Taxon[1],"_bin_min.tif"),overwrite=TRUE)
+
 mapa.en.mg.MTPbin <- reclassify(mapa.area.grande, c(-Inf,rcl.min,0,rcl.min,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
 writeRaster(mapa.en.mg.MTPbin, paste0("outputs/",datos$Taxon[1],"_binG_MTP.tif"),overwrite=TRUE)
+
 #10 percentil
-rcl.10 <- quantile(na.omit(rcl.m),.10)
+rcl.10 <- quantile(na.omit(rcl.m),.10) # extraer valor por percentil
+
 mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf,rcl.10,0,rcl.10,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
 writeRaster(mapa.en.m.bin10, paste0("outputs/",datos$Taxon[1],"_bin_10.tif"),overwrite=TRUE)
+
 mapa.en.mg.bin10 <- reclassify(mapa.area.grande, c(-Inf,rcl.10,0,rcl.10,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
 writeRaster(mapa.en.mg.bin10, paste0("outputs/",datos$Taxon[1],"_binG_10.tif"),overwrite=TRUE)
 #plot(mapa.en.m.bin)
