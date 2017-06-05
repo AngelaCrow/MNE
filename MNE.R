@@ -1,3 +1,5 @@
+#Este codigo fue desarrollado por Angela P. Cuervo-Robayo ancuervo@gmail.com y Juan Martin Barrrios j.m.barrios@gmail.com . 
+
 library("rgdal")
 library("fuzzySim")
 library("ENMeval")
