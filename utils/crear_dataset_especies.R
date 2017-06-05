@@ -7,6 +7,6 @@ especieData[,
               .SD,
               file.path(outputDataFolder,
                 paste0("data_",
-                       gsub('([[:punct:]])|\\s+','_', Binomial),
+                       gsub('([[:punct:]])|\\s+','_', Taxon),
                        ".csv"))),
-            by = .(Binomial)]
+            by = .(Taxon)]
