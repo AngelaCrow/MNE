@@ -188,8 +188,6 @@ write.csv(auc,
 #reclasificar mapa de la calibracion
 rcl.m <- na.omit(raster::extract(mapa.en.m, occsCalibracion))
 
-#mapa.area.grande
-
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
 
@@ -215,6 +213,5 @@ mapa.en.mg.bin10 <- reclassify(mapa.area.grande, c(-Inf, rcl.10, 0, rcl.10, Inf,
 writeRaster(mapa.en.mg.bin10,
             file.path(outputFolder, "ENM_binG_10.tif"),
             overwrite = TRUE)
-#plot(mapa.en.m.bin)
 #
 # ##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R.
