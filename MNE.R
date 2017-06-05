@@ -168,35 +168,35 @@ writeRaster(mapa.area.grande,
 ####VALIDACION####
 #Independiente de umbral
 #AUC
-testpp <- raster::extract(mapa.en.m, occsValidacion)
-abs <- raster::extract(mapa.en.m, bg.df)
-combined <- c(testpp, abs)
-label <- c(rep(1,length(testpp)),rep(0,length(abs)))
-pred <- prediction(combined, label)
-perf <- performance(pred, "tpr", "fpr")
-auc <- performance(pred, "auc")@y.values[[1]]
+testpp <- extract(mapa.en.m, occs_val)
+abs <- extract(mapa.en.m, bg.df)
+combined <- c(testpp, abs)       
+label <- c(rep(1,length(testpp)),rep(0,length(abs)))  
+pred <- prediction(combined, label)   
+perf <- performance(pred, "tpr", "fpr")               
+auc <- performance(pred, "auc")@y.values[[1]]       
+auc                      
+write.csv(auc,file = paste0("outputs/",datos$Taxon[1],"_auc.csv"),row.names = FALSE)
 
-write.csv(auc,
-          file = file.path(outputFolder, "data_auc.csv"),
-          row.names = FALSE)
-
-# #Dependiente de umbral
-# source("funciones_LAE.R")
+#Dependiente de umbral
+source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(raster::extract(mapa.en.m, occsCalibracion))
-#
+rcl.m <- na.omit(extract(mapa.en.m, occs_cal)) 
+
+mapa.area.grande
+
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
-rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
-mapa.en.m.bin <- reclassify(mapa.en.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin,
-            file.path(outputFolder, "ENM_bin_min.tif"),
-            overwrite = TRUE)
+rcl.min<-min(rcl.m) # extraer el minimo valor de presencia
+mapa.en.m.bin <- reclassify(mapa.en.m, c(-Inf,rcl.min,0,rcl.min,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mapa.en.m.bin, paste0("outputs/",datos$Taxon[1],"_bin_min.tif"),overwrite=TRUE)
+mapa.en.mg.MTPbin <- reclassify(mapa.area.grande, c(-Inf,rcl.min,0,rcl.min,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mapa.en.mg.MTPbin, paste0("outputs/",datos$Taxon[1],"_binG_MTP.tif"),overwrite=TRUE)
 #10 percentil
 rcl.10 <- quantile(na.omit(rcl.m),.10)
-mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin10,
-            file.path(outputFolder, "ENM_bin_10.tif"),
-            overwrite = TRUE)
+mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf,rcl.10,0,rcl.10,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mapa.en.m.bin10, paste0("outputs/",datos$Taxon[1],"_bin_10.tif"),overwrite=TRUE)
+mapa.en.mg.bin10 <- reclassify(mapa.area.grande, c(-Inf,rcl.10,0,rcl.10,Inf,1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mapa.en.mg.bin10, paste0("outputs/",datos$Taxon[1],"_binG_10.tif"),overwrite=TRUE)
 #plot(mapa.en.m.bin)
 #
 # ##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R.
