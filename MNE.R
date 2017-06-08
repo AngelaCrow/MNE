@@ -93,6 +93,8 @@ sampleDataPoints <- sample.int(
 selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
 covarData$isTrain <- selectedValues
+write.csv(covarData, file.path(outputFolder, "baseProcesada.csv"),
+          col.names = FALSE)
 
 # Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
 coordinates(sp_coor) <- ~Dec_Long+Dec_Lat
