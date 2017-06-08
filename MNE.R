@@ -1,7 +1,8 @@
 # Este codigo fue desarrollado por
 # - Angela P. Cuervo-Robayo ancuervo@gmail.com y
 # - Juan Martin Barrrios j.m.barrios@gmail.com.
-# Utilizá funciones del paquete NicheToolBox de Luis Osorio: https://github.com/luismurao/nichetoolbox
+# Utilizá funciones del paquete NicheToolBox
+# de Luis Osorio: https://github.com/luismurao/nichetoolbox
 
 library("rgdal")
 library("fuzzySim")
