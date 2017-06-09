@@ -133,7 +133,7 @@ write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
 # ENMeval
 sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                 method = "randomkfold", kfolds = 5, bin.output = TRUE,
+                 method = "randomkfold", kfolds = 10, bin.output = TRUE,
                  parallel = TRUE, numCores = parallel::detectCores())
 
 # identificar el nombre del modelo más parsimonioso
