@@ -2,7 +2,7 @@
 # - Angela P. Cuervo-Robayo ancuervo@gmail.com y
 # - Juan Martin Barrrios j.m.barrios@gmail.com.
 # It uses NicheToolBox package functions
-# de Luis Osorio: https://github.com/luismurao/nichetoolbox
+# of Luis Osorio: https://github.com/luismurao/nichetoolbox
 
 library("rgdal")
 library("fuzzySim")
@@ -27,15 +27,15 @@ if (length(args) == 0) {
   stop("Solo se acepta un parametro.\n", call. = FALSE)
 }
 
-# Configuracion de folders da datos
+# Data folder configuration
 baseDataFolder <- "../IUCN_data"
 
-# Ruta en la que se encuentra el poligono para hacer M de cada especie
+# Directory of the shapePolygon to select species'  M area
 shapePath <- file.path(baseDataFolder, 'shapes')
 shapeLayer <- "wwf_eco_mesoa"
 regionalizacion <- readOGR(shapePath, shapeLayer)
 
-# Directorio de covariables
+# Directory for covariables
 covarDataFolder <- file.path(baseDataFolder, "covar_rasters")
 
 inputDataFile <- args[1]
