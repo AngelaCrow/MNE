@@ -31,7 +31,7 @@ if (length(args) == 0) {
 baseDataFolder <- "../IUCN_data"
 
 # Ruta en la que se encuentra el poligono para hacer M de cada especie
-shapePath <- file.path(baseDataFolder, 'shapes/wwf_eco_mesoa.shp')
+shapePath <- file.path(baseDataFolder, 'shapes')
 shapeLayer <- "wwf_eco_mesoa"
 regionalizacion <- readOGR(shapePath, shapeLayer)
 
@@ -81,10 +81,10 @@ correlacion <- corSelect(
 
 select_var <- correlacion$selected.vars
 write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
-climaImportantes <- clima[[select_var]]
+selectedVariables <- clima[[select_var]]
 
-####CALIBRACION####
-# Seleccionar el 70 de los datos para calibrar y el resto para validar
+####Training####
+# Divides your data into trainining and test data sets. 70/30 % 
 sampleDataPoints <- sample.int(
   nrow(covarData),
   size = floor(0.7*nrow(covarData))
@@ -93,22 +93,23 @@ sampleDataPoints <- sample.int(
 selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
 covarData$isTrain <- selectedValues
-write.csv(covarData, file.path(outputFolder, "baseProcesada.csv"),
-          col.names = FALSE)
+write.csv(covarData, file.path(outputFolder, "finaldatabase.csv"),
+          row.names = FALSE)
 
-# Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
+# Selects the M of the species, base on Olson´s ecoregions
+# Download: https://www.worldwildlife.org/publications/terrestrial-ecoregions-of-the-world
 coordinates(sp_coor) <- ~Dec_Long+Dec_Lat
 proj4string(sp_coor) <- proj4string(regionalizacion)
 
-# obtener los datos de los poligonos que tienen sitios de colecta
+# Intersects the occurrence data with polygons
 dataenpoly <- over(sp_coor, regionalizacion, fn = NULL)
 enpolyindex <- which(!is.na(dataenpoly$ECO_NAME))
 polydatadf <- dataenpoly[enpolyindex, ]
 id_polys <- unique(polydatadf$ECO_NAME)
 poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
 # recortamos el grid
-# climaImportantesRecortadas <- crop(climaImportantes, poligonofilter)
-env <- mask(climaImportantes, poligonofilter) #M de la especie
+selectedVariablesCrop <- crop(selectedVariables, poligonofilter)
+env <- mask(selectedVariables, poligonofilter) #M de la especie
 
 # MAXENT
 # Proceso de modelacion, primero separar los datos de calibracion y validacion
@@ -165,7 +166,7 @@ writeRaster(mapa.en.m,
             overwrite = TRUE)
 
 ##tranferirlo a otro tiempo o area mas grande
-mapa.area.grande <- predict(modelo.maxent, climaImportantes)
+mapa.area.grande <- predict(modelo.maxent, selectedVariables)
 #plot(mapa.area.grande)
 writeRaster(mapa.area.grande,
             file.path(outputFolder, "ENM_log.tif"),
