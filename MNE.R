@@ -127,17 +127,13 @@ occsValidacion <- covarData %>%
 bg <- randomPoints(env[[1]], n = 10000)
 # bg <- randomPoints(env[[1]], n = 100)
 bg.df <- as.data.frame(bg)
-pdf(file = file.path(outputFolder, "env_plot.pdf"))
-  plot(env[[1]], legend = FALSE)
-  points(bg.df, col = 'red')
-dev.off()
 write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
           row.names = FALSE)
 
 # ENMeval
 sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                 method = "randomkfold", kfolds = 4, bin.output = TRUE,
+                 method = "randomkfold", kfolds = 5, bin.output = TRUE,
                  parallel = TRUE, numCores = parallel::detectCores())
 
 # identificar el nombre del modelo más parsimonioso
@@ -160,16 +156,16 @@ writeRaster(model.delta.aic,
 model.maxent <- sp@models[[delta_aic]]
 
 # Raster del modelo en la M, en escala logistica
-mode.in.m <- predict(model.maxent, env)
-#plot(mode.in.m)
-writeRaster(mode.in.m,
+model.in.m <- predict(model.maxent, env)
+#plot(model.in.m)
+writeRaster(model.in.m,
             file.path(outputFolder, "ENM_prediction_M_log.tif"),
             overwrite = TRUE)
 
 ##tranferirlo a otro tiempo o area mas grande
-mapa.area.grande <- predict(model.maxent, selectedVariables)
-#plot(mapa.area.grande)
-writeRaster(mapa.area.grande,
+model.trans <- predict(model.maxent, selectedVariables)
+#plot(model.trans)
+writeRaster(model.trans,
             file.path(outputFolder, "ENM_log.tif"),
             overwrite = TRUE)
 
@@ -177,8 +173,8 @@ writeRaster(mapa.area.grande,
 ####VALIDACION####
 #Independiente de umbral
 #AUC
-testpp <- raster::extract(mode.in.m, occsValidacion)
-abs <- raster::extract(mode.in.m, bg.df)
+testpp <- raster::extract(model.in.m, occsValidacion)
+abs <- raster::extract(model.in.m, bg.df)
 combined <- c(testpp, abs)
 label <- c(rep(1,length(testpp)),rep(0,length(abs)))
 pred <- prediction(combined, label)
@@ -192,31 +188,31 @@ write.csv(auc,
 #Dependiente de umbral
 # source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(raster::extract(mode.in.m, occsCalibracion))
+rcl.m <- na.omit(raster::extract(model.in.m, occsCalibracion))
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
 
-mode.in.m.bin <- reclassify(mode.in.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mode.in.m.bin,
+model.in.m.bin <- reclassify(model.in.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.m.bin,
             file.path(outputFolder, "ENM_bin_min.tif"),
             overwrite = TRUE)
 
-mode.in.mg.MTPbin <- reclassify(mapa.area.grande, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mode.in.mg.MTPbin,
+model.in.mg.MTPbin <- reclassify(model.trans, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.mg.MTPbin,
             file.path(outputFolder, "ENM_binG_MTP.tif"),
             overwrite = TRUE)
 
 #10 percentil
 rcl.10 <- quantile(na.omit(rcl.m), .10) # extraer valor por percentil
 
-mode.in.m.bin10 <- reclassify(mode.in.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mode.in.m.bin10,
+model.in.m.bin10 <- reclassify(model.in.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.m.bin10,
             file.path(outputFolder, "ENM_bin_10.tif"),
             overwrite = TRUE)
 
-mode.in.mg.bin10 <- reclassify(mapa.area.grande, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mode.in.mg.bin10,
+model.in.mg.bin10 <- reclassify(model.trans, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.mg.bin10,
             file.path(outputFolder, "ENM_binG_10.tif"),
             overwrite = TRUE)
 #
