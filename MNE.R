@@ -152,7 +152,7 @@ delta_aic <- which(results_enmeval$delta.AICc == 0)
 predictions <- sp@predictions
 model.delta.aic <- predictions[[delta_aic]]
 writeRaster(model.delta.aic,
-            file.path(outputFolder, "ENMeval_prediction.tif"),
+            file.path(outputFolder, "ENM_prediction_M_raw.tif"),
             overwrite = TRUE)
 
 # elegir los parametros de maxent del modelo más parsimonioso y
