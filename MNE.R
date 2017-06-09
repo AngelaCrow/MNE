@@ -112,7 +112,8 @@ selectedVariablesCrop <- crop(selectedVariables, poligonofilter)
 env <- mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
 
 # MAXENT
-# Proceso de modelacion, primero separar los datos de calibracion y validacion
+# We used ENMeval packeage to estimate optimal model complexity (Muscarrella et al. 2014)
+# Modeling process, first separate the calibration and validation data
 occsCalibracion <- covarData %>%
   dplyr::filter(isTrain == 1) %>%
   dplyr::select(Dec_Long, Dec_Lat)
@@ -140,33 +141,33 @@ sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  parallel = TRUE, numCores = parallel::detectCores())
 
 # identificar el nombre del modelo más parsimonioso
-resultados_enmeval <- sp@results
-write.csv(resultados_enmeval,
-          file = file.path(outputFolder, "resultados_enmeval.csv")
+results_enmeval <- sp@results
+write.csv(results_enmeval,
+          file = file.path(outputFolder, "results_enmeval.csv")
           ,row.names = FALSE)
-delta_aic <- which(resultados_enmeval$delta.AICc == 0)
-#
+delta_aic <- which(results_enmeval$delta.AICc == 0)
+
 # ENM EN RASTER
 # seleccionar raster del modelo más parsomonioso
 predictions <- sp@predictions
-modelo.delta.aic <- predictions[[delta_aic]]
-writeRaster(modelo.delta.aic,
-            file.path(outputFolder, "ENM_in_m.tif"),
+model.delta.aic <- predictions[[delta_aic]]
+writeRaster(model.delta.aic,
+            file.path(outputFolder, "ENMeval_prediction.tif"),
             overwrite = TRUE)
 
 # elegir los parametros de maxent del modelo más parsimonioso y
 # proyectar a otras variables
-modelo.maxent <- sp@models[[delta_aic]]
+model.maxent <- sp@models[[delta_aic]]
 
 # Raster del modelo en la M, en escala logistica
-mapa.en.m <- predict(modelo.maxent, env)
-#plot(mapa.en.m)
-writeRaster(mapa.en.m,
-            file.path(outputFolder, "ENM_in_mlog.tif"),
+mode.in.m <- predict(model.maxent, env)
+#plot(mode.in.m)
+writeRaster(mode.in.m,
+            file.path(outputFolder, "ENM_prediction_M_log.tif"),
             overwrite = TRUE)
 
 ##tranferirlo a otro tiempo o area mas grande
-mapa.area.grande <- predict(modelo.maxent, selectedVariables)
+mapa.area.grande <- predict(model.maxent, selectedVariables)
 #plot(mapa.area.grande)
 writeRaster(mapa.area.grande,
             file.path(outputFolder, "ENM_log.tif"),
@@ -176,8 +177,8 @@ writeRaster(mapa.area.grande,
 ####VALIDACION####
 #Independiente de umbral
 #AUC
-testpp <- raster::extract(mapa.en.m, occsValidacion)
-abs <- raster::extract(mapa.en.m, bg.df)
+testpp <- raster::extract(mode.in.m, occsValidacion)
+abs <- raster::extract(mode.in.m, bg.df)
 combined <- c(testpp, abs)
 label <- c(rep(1,length(testpp)),rep(0,length(abs)))
 pred <- prediction(combined, label)
@@ -191,31 +192,31 @@ write.csv(auc,
 #Dependiente de umbral
 # source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(raster::extract(mapa.en.m, occsCalibracion))
+rcl.m <- na.omit(raster::extract(mode.in.m, occsCalibracion))
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
 
-mapa.en.m.bin <- reclassify(mapa.en.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin,
+mode.in.m.bin <- reclassify(mode.in.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mode.in.m.bin,
             file.path(outputFolder, "ENM_bin_min.tif"),
             overwrite = TRUE)
 
-mapa.en.mg.MTPbin <- reclassify(mapa.area.grande, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.mg.MTPbin,
+mode.in.mg.MTPbin <- reclassify(mapa.area.grande, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mode.in.mg.MTPbin,
             file.path(outputFolder, "ENM_binG_MTP.tif"),
             overwrite = TRUE)
 
 #10 percentil
 rcl.10 <- quantile(na.omit(rcl.m), .10) # extraer valor por percentil
 
-mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin10,
+mode.in.m.bin10 <- reclassify(mode.in.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mode.in.m.bin10,
             file.path(outputFolder, "ENM_bin_10.tif"),
             overwrite = TRUE)
 
-mapa.en.mg.bin10 <- reclassify(mapa.area.grande, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.mg.bin10,
+mode.in.mg.bin10 <- reclassify(mapa.area.grande, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(mode.in.mg.bin10,
             file.path(outputFolder, "ENM_binG_10.tif"),
             overwrite = TRUE)
 #
