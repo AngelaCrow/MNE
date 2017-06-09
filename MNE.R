@@ -1,7 +1,7 @@
-# Este codigo fue desarrollado por
+# This code was developed by
 # - Angela P. Cuervo-Robayo ancuervo@gmail.com y
 # - Juan Martin Barrrios j.m.barrios@gmail.com.
-# Utilizá funciones del paquete NicheToolBox
+# It uses NicheToolBox package functions
 # de Luis Osorio: https://github.com/luismurao/nichetoolbox
 
 library("rgdal")
@@ -109,7 +109,7 @@ id_polys <- unique(polydatadf$ECO_NAME)
 poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
 # extract by mask
 selectedVariablesCrop <- crop(selectedVariables, poligonofilter)
-env <- mask(selectedVariablesCrop, poligonofilter) #M de la especie
+env <- mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
 
 # MAXENT
 # Proceso de modelacion, primero separar los datos de calibracion y validacion
