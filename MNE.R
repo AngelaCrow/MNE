@@ -47,7 +47,7 @@ if (!dir.exists(outputFolder)) {
   dir.create(outputFolder, recursive = TRUE)
 }
 
-####LIMPIEZA DE DUPLICADOS####
+####Cleaning duplicate records on a cell####
 occsData <- read.csv(inputDataFile, header = TRUE, stringsAsFactors = FALSE) %>%
   clean_dup("Dec_Long", "Dec_Lat", 0.00833333333)
 
@@ -55,14 +55,14 @@ write.csv(occsData,
           file = file.path(outputFolder, "clean_data.csv"),
           row.names = FALSE)
 
-#### VARIABLES AMBIENTALES####
+#### ENVIROMENTAL VARIABLES####
 covarFileList <- list_files_with_exts(covarDataFolder, "tif")
-clima <- raster::stack(covarFileList)
+enviromentalVariables <- raster::stack(covarFileList)
 
 #### VARIABLES + PRESENCIAS####
 sp_coor <- occsData[c("Dec_Long", "Dec_Lat")]
 
-covarData <- raster::extract(clima, sp_coor)
+covarData <- raster::extract(enviromentalVariables, sp_coor)
 covarData <- cbind(occsData, covarData)
 
 covarData <- covarData[!is.na(covarData$bio_1), ]
@@ -81,9 +81,9 @@ correlacion <- corSelect(
 
 select_var <- correlacion$selected.vars
 write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
-selectedVariables <- clima[[select_var]]
+selectedVariables <- enviromentalVariables[[select_var]]
 
-####Training####
+####TRAINNING###
 # Divides your data into trainining and test data sets. 70/30 % 
 sampleDataPoints <- sample.int(
   nrow(covarData),
@@ -107,9 +107,9 @@ enpolyindex <- which(!is.na(dataenpoly$ECO_NAME))
 polydatadf <- dataenpoly[enpolyindex, ]
 id_polys <- unique(polydatadf$ECO_NAME)
 poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
-# recortamos el grid
+# extract by mask
 selectedVariablesCrop <- crop(selectedVariables, poligonofilter)
-env <- mask(selectedVariables, poligonofilter) #M de la especie
+env <- mask(selectedVariablesCrop, poligonofilter) #M de la especie
 
 # MAXENT
 # Proceso de modelacion, primero separar los datos de calibracion y validacion
