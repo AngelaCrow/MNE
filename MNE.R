@@ -133,7 +133,7 @@ write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
 # ENMeval
 sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                 method = "randomkfold", kfolds = 10, bin.output = TRUE,
+                 method = "randomkfold", kfolds = 5, bin.output = TRUE,
                  parallel = TRUE, numCores = parallel::detectCores())
 
 resultados_enmeval <- sp@results
@@ -145,7 +145,10 @@ write.csv(resultados_enmeval,
 modelsAIC0 <- resultados_enmeval %>%
   mutate(index = rownames(resultados_enmeval)) %>%
   filter(delta.AICc == 0) %>%
-  select(index, settings)
+  select(index, settings) %>%
+  mutate(index = as.numeric(index), settings = as.character(settings))
+
+
 
 saveRasterWithSettings <- function(models, predictions, prefix) {
   raster::writeRaster(predictions[[models["settings"]]],
@@ -156,95 +159,156 @@ saveRasterWithSettings <- function(models, predictions, prefix) {
 }
 
 apply(modelsAIC0, 1, saveRasterWithSettings,
-      predictions = sp@predictions, prefix = "ENM_in_m_")
+      predictions = sp@predictions, prefix = "ENM_prediction_M_raw_")
 
-predictAndSave <- function(model, models, data, prefix) {
+predictAndSave <- function(model, models, data, prefix, occs) {
   choicedModel <- models[[as.integer(model["index"])]]
   predictions <- dismo::predict(choicedModel, data)
   raster::writeRaster(predictions,
                       file.path(outputFolder, paste0(prefix,
+                                                     "log_",
+                                                     model["settings"],
+                                                     ".tif")),
+                      overwrite = TRUE)
+
+  occsValues <- raster::extract(predictions, occs)
+  minValOcc <- min(occsValues, na.rm = TRUE)
+  raster::writeRaster(reclassify(predictions,
+                                 c(-Inf, minValOcc, 0, minValOcc, Inf, 1)),
+                      file.path(outputFolder, paste0(prefix,
+                                                     "bin_min_",
+                                                     model["settings"],
+                                                     ".tif")),
+                      overwrite = TRUE)
+
+  q10ValOcc <- quantile(occsValues, 0.1, na.rm = TRUE)
+  raster::writeRaster(reclassify(predictions,
+                                 c(-Inf, q10ValOcc, 0, q10ValOcc, Inf, 1)),
+                      file.path(outputFolder, paste0(prefix,
+                                                     "bin_q10_",
                                                      model["settings"],
                                                      ".tif")),
                       overwrite = TRUE)
 }
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env, prefix = "ENM_in_mlog_")
+      models = sp@models, data = env, prefix = "ENM_prediction_M_",
+      occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = climaImportantes, prefix = "ENM_in_log_")
+      models = sp@models, data = selectedVariables, prefix = "ENM_")
 #
 # ENM EN RASTER
 # seleccionar raster del modelo más parsomonioso
-predictions <- sp@predictions
-model.delta.aic <- predictions[[delta_aic]]
-writeRaster(model.delta.aic,
-            file.path(outputFolder, "ENM_prediction_M_raw.tif"),
-            overwrite = TRUE)
+# predictions <- sp@predictions
+# model.delta.aic <- predictions[[delta_aic]]
+# writeRaster(model.delta.aic,
+#             file.path(outputFolder, "ENM_prediction_M_raw.tif"),
+#             overwrite = TRUE)
 
 # elegir los parametros de maxent del modelo más parsimonioso y
 # proyectar a otras variables
-model.maxent <- sp@models[[delta_aic]]
+# model.maxent <- sp@models[[delta_aic]]
 
 # Raster del modelo en la M, en escala logistica
-model.in.m <- predict(model.maxent, env)
+# model.in.m <- predict(model.maxent, env)
 #plot(model.in.m)
-writeRaster(model.in.m,
-            file.path(outputFolder, "ENM_prediction_M_log.tif"),
-            overwrite = TRUE)
+# writeRaster(model.in.m,
+#             file.path(outputFolder, "ENM_prediction_M_log.tif"),
+#             overwrite = TRUE)
 
 ##tranferirlo a otro tiempo o area mas grande
-model.trans <- predict(model.maxent, selectedVariablesPSC)
-plot(model.trans)
-writeRaster(model.trans,
-            file.path(outputFolder, "ENM_log.tif"),
-            overwrite = TRUE)
+# model.trans <- predict(model.maxent, selectedVariablesPSC)
+# plot(model.trans)
+# writeRaster(model.trans,
+#             file.path(outputFolder, "ENM_log.tif"),
+#             overwrite = TRUE)
 
 
 ####VALIDACION####
 #Independiente de umbral
 #AUC
-testpp <- raster::extract(model.in.m, occsValidacion)
-abs <- raster::extract(model.in.m, bg.df)
-combined <- c(testpp, abs)
-label <- c(rep(1,length(testpp)),rep(0,length(abs)))
-pred <- prediction(combined, label)
-perf <- performance(pred, "tpr", "fpr")
-auc <- performance(pred, "auc")@y.values[[1]]
-auc
-write.csv(auc,
+aucCalculator <- function(prediction, occs, bgPoints) {
+  data <- rbind(occs, setNames(bgPoints, names(occs)))
+  labels <- c(rep(1, nrow(occs)),
+              rep(0, nrow(bgPoints)))
+  scores <- raster::extract(prediction, data)
+  pred <- prediction(scores, labels)
+  # perf <- performance(pred, "tpr", "fpr")
+  auc <- performance(pred, "auc")@y.values[[1]]
+  return(auc)
+}
+
+aucStatistcs <- function(model, models, env, occs, bgPoints) {
+  result <- apply(model, 1, function(x, models, env, occs, bgPoints){
+    choicedModel <- models[[as.integer(model["index"])]]
+    prediction <- dismo::predict(choicedModel, env)
+    auc <- aucCalculator(prediction, occs, bgPoints)
+    return(c(model["settings"], auc))
+  },
+  models = models,
+  env = env,
+  occs = occs,
+  bgPoints = bgPoints)
+
+  result <- data.frame(
+    matrix(unlist(result), nrow = nrow(model), byrow = TRUE),
+    stringsAsFactors = FALSE
+    )
+
+  names(result) <- c("settings", "AUC")
+
+  result <- result %>% mutate(AUC = as.numeric(AUC))
+
+  return(result)
+}
+
+resultsAUC <- aucStatistcs(modelsAIC0, sp@models, env, occsValidacion, bg.df)
+write.csv(resultsAUC,
           file = file.path(outputFolder, "data_auc.csv"),
           row.names = FALSE)
+
+# testpp <- raster::extract(model.in.m, occsValidacion)
+# abs <- raster::extract(model.in.m, bg.df)
+# combined <- c(testpp, abs)
+# label <- c(rep(1,length(testpp)),rep(0,length(abs)))
+# pred <- prediction(combined, label)
+# perf <- performance(pred, "tpr", "fpr")
+# auc <- performance(pred, "auc")@y.values[[1]]
+# auc
+# write.csv(auc,
+#           file = file.path(outputFolder, "data_auc.csv"),
+#           row.names = FALSE)
 
 #Dependiente de umbral
 # source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(raster::extract(model.in.m, occsCalibracion))
+# rcl.m <- na.omit(raster::extract(model.in.m, occsCalibracion))
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
-rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
+# rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
 
-model.in.m.bin <- reclassify(model.in.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(model.in.m.bin,
-            file.path(outputFolder, "ENM_bin_min.tif"),
-            overwrite = TRUE)
+# model.in.m.bin <- reclassify(model.in.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+# writeRaster(model.in.m.bin,
+#             file.path(outputFolder, "ENM_bin_min.tif"),
+#             overwrite = TRUE)
 
-model.in.mg.MTPbin <- reclassify(model.trans, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(model.in.mg.MTPbin,
-            file.path(outputFolder, "ENM_binG_MTP.tif"),
-            overwrite = TRUE)
+# model.in.mg.MTPbin <- reclassify(model.trans, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+# writeRaster(model.in.mg.MTPbin,
+#             file.path(outputFolder, "ENM_binG_MTP.tif"),
+#             overwrite = TRUE)
 
 #10 percentil
-rcl.10 <- quantile(na.omit(rcl.m), .10) # extraer valor por percentil
+# rcl.10 <- quantile(na.omit(rcl.m), .10) # extraer valor por percentil
 
-model.in.m.bin10 <- reclassify(model.in.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(model.in.m.bin10,
-            file.path(outputFolder, "ENM_bin_10.tif"),
-            overwrite = TRUE)
+# model.in.m.bin10 <- reclassify(model.in.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+# writeRaster(model.in.m.bin10,
+#             file.path(outputFolder, "ENM_bin_10.tif"),
+#             overwrite = TRUE)
 
-model.in.mg.bin10 <- reclassify(model.trans, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(model.in.mg.bin10,
-            file.path(outputFolder, "ENM_binG_10.tif"),
-            overwrite = TRUE)
+# model.in.mg.bin10 <- reclassify(model.trans, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+# writeRaster(model.in.mg.bin10,
+#             file.path(outputFolder, "ENM_binG_10.tif"),
+#             overwrite = TRUE)
 #
 # ##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R.
