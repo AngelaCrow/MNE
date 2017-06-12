@@ -94,7 +94,7 @@ selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
 covarData$isTrain <- selectedValues
 write.csv(covarData, file.path(outputFolder, "baseProcesada.csv"),
-          col.names = FALSE)
+          row.names = FALSE)
 
 # Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
 coordinates(sp_coor) <- ~Dec_Long+Dec_Lat
@@ -138,12 +138,43 @@ sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  method = "randomkfold", kfolds = 4, bin.output = TRUE,
                  parallel = TRUE, numCores = parallel::detectCores())
 
-# identificar el nombre del modelo más parsimonioso
 resultados_enmeval <- sp@results
 write.csv(resultados_enmeval,
-          file = file.path(outputFolder, "resultados_enmeval.csv")
-          ,row.names = FALSE)
-delta_aic <- which(resultados_enmeval$delta.AICc == 0)
+          file = file.path(outputFolder, "resultados_enmeval.csv"),
+          row.names = FALSE)
+
+# delta_aic <- which(resultados_enmeval$delta.AICc == 0)
+modelsAIC0 <- resultados_enmeval %>%
+  mutate(index = rownames(resultados_enmeval)) %>%
+  filter(delta.AICc == 0) %>%
+  select(index, settings)
+
+saveRasterWithSettings <- function(models, predictions, prefix) {
+  raster::writeRaster(predictions[[models["settings"]]],
+              file.path(outputFolder, paste0(prefix,
+                                             models["settings"],
+                                             ".tif")),
+              overwrite = TRUE)
+}
+
+apply(modelsAIC0, 1, saveRasterWithSettings,
+      predictions = sp@predictions, prefix = "ENM_in_m_")
+
+predictAndSave <- function(model, models, data, prefix) {
+  choicedModel <- models[[as.integer(model["index"])]]
+  predictions <- dismo::predict(choicedModel, data)
+  raster::writeRaster(predictions,
+                      file.path(outputFolder, paste0(prefix,
+                                                     model["settings"],
+                                                     ".tif")),
+                      overwrite = TRUE)
+}
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = env, prefix = "ENM_in_mlog_")
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = climaImportantes, prefix = "ENM_in_log_")
 #
 # ENM EN RASTER
 # seleccionar raster del modelo más parsomonioso
