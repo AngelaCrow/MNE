@@ -1,8 +1,8 @@
-# Este codigo fue desarrollado por
+# This code was developed by
 # - Angela P. Cuervo-Robayo ancuervo@gmail.com y
 # - Juan Martin Barrrios j.m.barrios@gmail.com.
-# Utilizá funciones del paquete NicheToolBox
-# de Luis Osorio: https://github.com/luismurao/nichetoolbox
+# It uses NicheToolBox package functions
+# of Luis Osorio: https://github.com/luismurao/nichetoolbox
 
 library("rgdal")
 library("fuzzySim")
@@ -27,15 +27,15 @@ if (length(args) == 0) {
   stop("Solo se acepta un parametro.\n", call. = FALSE)
 }
 
-# Configuracion de folders da datos
+# Data folder configuration
 baseDataFolder <- "../IUCN_data"
 
-# Ruta en la que se encuentra el poligono para hacer M de cada especie
-shapePath <- file.path(baseDataFolder, 'shapes/wwf_eco_mesoa.shp')
+# Directory of the shapePolygon to select species'  M area
+shapePath <- file.path(baseDataFolder, 'shapes')
 shapeLayer <- "wwf_eco_mesoa"
 regionalizacion <- readOGR(shapePath, shapeLayer)
 
-# Directorio de covariables
+# Directory for covariables
 covarDataFolder <- file.path(baseDataFolder, "covar_rasters")
 
 inputDataFile <- args[1]
@@ -47,7 +47,7 @@ if (!dir.exists(outputFolder)) {
   dir.create(outputFolder, recursive = TRUE)
 }
 
-####LIMPIEZA DE DUPLICADOS####
+####Cleaning duplicate records on a cell####
 occsData <- read.csv(inputDataFile, header = TRUE, stringsAsFactors = FALSE) %>%
   clean_dup("Dec_Long", "Dec_Lat", 0.00833333333)
 
@@ -55,14 +55,14 @@ write.csv(occsData,
           file = file.path(outputFolder, "clean_data.csv"),
           row.names = FALSE)
 
-#### VARIABLES AMBIENTALES####
+#### ENVIROMENTAL VARIABLES####
 covarFileList <- list_files_with_exts(covarDataFolder, "tif")
-clima <- raster::stack(covarFileList)
+enviromentalVariables <- raster::stack(covarFileList)
 
 #### VARIABLES + PRESENCIAS####
 sp_coor <- occsData[c("Dec_Long", "Dec_Lat")]
 
-covarData <- raster::extract(clima, sp_coor)
+covarData <- raster::extract(enviromentalVariables, sp_coor)
 covarData <- cbind(occsData, covarData)
 
 covarData <- covarData[!is.na(covarData$bio_1), ]
@@ -81,10 +81,10 @@ correlacion <- corSelect(
 
 select_var <- correlacion$selected.vars
 write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
-climaImportantes <- clima[[select_var]]
+selectedVariables <- enviromentalVariables[[select_var]]
 
-####CALIBRACION####
-# Seleccionar el 70 de los datos para calibrar y el resto para validar
+####TRAINNING###
+# Divides your data into trainining and test data sets. 70/30 %
 sampleDataPoints <- sample.int(
   nrow(covarData),
   size = floor(0.7*nrow(covarData))
@@ -93,25 +93,27 @@ sampleDataPoints <- sample.int(
 selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
 covarData$isTrain <- selectedValues
-write.csv(covarData, file.path(outputFolder, "baseProcesada.csv"),
+write.csv(covarData, file.path(outputFolder, "finaldatabase.csv"),
           row.names = FALSE)
 
-# Ahora cortar los raster con las ecoregiones donde exisan puntos de la especie
+# Selects the M of the species, base on Olson´s ecoregions
+# Download: https://www.worldwildlife.org/publications/terrestrial-ecoregions-of-the-world
 coordinates(sp_coor) <- ~Dec_Long+Dec_Lat
 proj4string(sp_coor) <- proj4string(regionalizacion)
 
-# obtener los datos de los poligonos que tienen sitios de colecta
+# Intersects the occurrence data with polygons
 dataenpoly <- over(sp_coor, regionalizacion, fn = NULL)
 enpolyindex <- which(!is.na(dataenpoly$ECO_NAME))
 polydatadf <- dataenpoly[enpolyindex, ]
 id_polys <- unique(polydatadf$ECO_NAME)
 poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
-# recortamos el grid
-# climaImportantesRecortadas <- crop(climaImportantes, poligonofilter)
-env <- mask(climaImportantes, poligonofilter) #M de la especie
+# extract by mask
+selectedVariablesCrop <- crop(selectedVariables, poligonofilter)
+env <- mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
 
 # MAXENT
-# Proceso de modelacion, primero separar los datos de calibracion y validacion
+# We used ENMeval packeage to estimate optimal model complexity (Muscarrella et al. 2014)
+# Modeling process, first separate the calibration and validation data
 occsCalibracion <- covarData %>%
   dplyr::filter(isTrain == 1) %>%
   dplyr::select(Dec_Long, Dec_Lat)
@@ -125,22 +127,18 @@ occsValidacion <- covarData %>%
 bg <- randomPoints(env[[1]], n = 10000)
 # bg <- randomPoints(env[[1]], n = 100)
 bg.df <- as.data.frame(bg)
-pdf(file = file.path(outputFolder, "env_plot.pdf"))
-  plot(env[[1]], legend = FALSE)
-  points(bg.df, col = 'red')
-dev.off()
 write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
           row.names = FALSE)
 
 # ENMeval
 sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                 method = "randomkfold", kfolds = 4, bin.output = TRUE,
+                 method = "randomkfold", kfolds = 10, bin.output = TRUE,
                  parallel = TRUE, numCores = parallel::detectCores())
 
 resultados_enmeval <- sp@results
 write.csv(resultados_enmeval,
-          file = file.path(outputFolder, "resultados_enmeval.csv"),
+          file = file.path(outputFolder, "enmeval_results.csv"),
           row.names = FALSE)
 
 # delta_aic <- which(resultados_enmeval$delta.AICc == 0)
@@ -179,26 +177,26 @@ apply(modelsAIC0, 1, predictAndSave,
 # ENM EN RASTER
 # seleccionar raster del modelo más parsomonioso
 predictions <- sp@predictions
-modelo.delta.aic <- predictions[[delta_aic]]
-writeRaster(modelo.delta.aic,
-            file.path(outputFolder, "ENM_in_m.tif"),
+model.delta.aic <- predictions[[delta_aic]]
+writeRaster(model.delta.aic,
+            file.path(outputFolder, "ENM_prediction_M_raw.tif"),
             overwrite = TRUE)
 
 # elegir los parametros de maxent del modelo más parsimonioso y
 # proyectar a otras variables
-modelo.maxent <- sp@models[[delta_aic]]
+model.maxent <- sp@models[[delta_aic]]
 
 # Raster del modelo en la M, en escala logistica
-mapa.en.m <- predict(modelo.maxent, env)
-#plot(mapa.en.m)
-writeRaster(mapa.en.m,
-            file.path(outputFolder, "ENM_in_mlog.tif"),
+model.in.m <- predict(model.maxent, env)
+#plot(model.in.m)
+writeRaster(model.in.m,
+            file.path(outputFolder, "ENM_prediction_M_log.tif"),
             overwrite = TRUE)
 
 ##tranferirlo a otro tiempo o area mas grande
-mapa.area.grande <- predict(modelo.maxent, climaImportantes)
-#plot(mapa.area.grande)
-writeRaster(mapa.area.grande,
+model.trans <- predict(model.maxent, selectedVariablesPSC)
+plot(model.trans)
+writeRaster(model.trans,
             file.path(outputFolder, "ENM_log.tif"),
             overwrite = TRUE)
 
@@ -206,8 +204,8 @@ writeRaster(mapa.area.grande,
 ####VALIDACION####
 #Independiente de umbral
 #AUC
-testpp <- raster::extract(mapa.en.m, occsValidacion)
-abs <- raster::extract(mapa.en.m, bg.df)
+testpp <- raster::extract(model.in.m, occsValidacion)
+abs <- raster::extract(model.in.m, bg.df)
 combined <- c(testpp, abs)
 label <- c(rep(1,length(testpp)),rep(0,length(abs)))
 pred <- prediction(combined, label)
@@ -221,31 +219,31 @@ write.csv(auc,
 #Dependiente de umbral
 # source("funciones_LAE.R")
 #reclasificar mapa de la calibracion
-rcl.m <- na.omit(raster::extract(mapa.en.m, occsCalibracion))
+rcl.m <- na.omit(raster::extract(model.in.m, occsCalibracion))
 
 #usando el valor de minimo de idoneidad que tienen los puntos de occurencia
 rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
 
-mapa.en.m.bin <- reclassify(mapa.en.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin,
+model.in.m.bin <- reclassify(model.in.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.m.bin,
             file.path(outputFolder, "ENM_bin_min.tif"),
             overwrite = TRUE)
 
-mapa.en.mg.MTPbin <- reclassify(mapa.area.grande, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.mg.MTPbin,
+model.in.mg.MTPbin <- reclassify(model.trans, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.mg.MTPbin,
             file.path(outputFolder, "ENM_binG_MTP.tif"),
             overwrite = TRUE)
 
 #10 percentil
 rcl.10 <- quantile(na.omit(rcl.m), .10) # extraer valor por percentil
 
-mapa.en.m.bin10 <- reclassify(mapa.en.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.m.bin10,
+model.in.m.bin10 <- reclassify(model.in.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.m.bin10,
             file.path(outputFolder, "ENM_bin_10.tif"),
             overwrite = TRUE)
 
-mapa.en.mg.bin10 <- reclassify(mapa.area.grande, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-writeRaster(mapa.en.mg.bin10,
+model.in.mg.bin10 <- reclassify(model.trans, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
+writeRaster(model.in.mg.bin10,
             file.path(outputFolder, "ENM_binG_10.tif"),
             overwrite = TRUE)
 #
