@@ -196,7 +196,8 @@ apply(modelsAIC0, 1, predictAndSave,
       occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariables, prefix = "ENM_")
+      models = sp@models, data = selectedVariables, prefix = "ENM_",
+      occs = occsCalibracion)
 #
 # ENM EN RASTER
 # seleccionar raster del modelo más parsomonioso
