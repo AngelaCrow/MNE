@@ -163,8 +163,8 @@ writeRaster(model.in.m,
             overwrite = TRUE)
 
 ##tranferirlo a otro tiempo o area mas grande
-model.trans <- predict(model.maxent, selectedVariables)
-#plot(model.trans)
+model.trans <- predict(model.maxent, selectedVariablesPSC)
+plot(model.trans)
 writeRaster(model.trans,
             file.path(outputFolder, "ENM_log.tif"),
             overwrite = TRUE)
