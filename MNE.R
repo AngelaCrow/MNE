@@ -28,15 +28,15 @@ if (length(args) == 0) {
 }
 
 # Data folder configuration
-baseDataFolder <- "../IUCN_data"
+baseDataFolder <- "./IUCN_data"
 
 # Directory of the shapePolygon to select species'  M area
 shapePath <- file.path(baseDataFolder, 'shapes')
-shapeLayer <- "wwf_eco_mesoa"
+shapeLayer <- "wwf_terr_ecos_a"
 regionalizacion <- readOGR(shapePath, shapeLayer)
 
 # Directory for covariables
-covarDataFolder <- file.path(baseDataFolder, "covar_rasters")
+covarDataFolder <- file.path(baseDataFolder, "covar_raster_PSC")
 
 inputDataFile <- args[1]
 outputFolder <- inputDataFile %>%
