@@ -36,7 +36,10 @@ shapeLayer <- "wwf_terr_ecos_a"
 regionalizacion <- readOGR(shapePath, shapeLayer)
 
 # Directory for covariables
-covarDataFolder <- file.path(baseDataFolder, "covar_raster_PSC")
+covarDataFolder <- file.path(baseDataFolder, "covar_rasters")
+
+# Area of interest 
+covarAOIDataFolder <- file.path(baseDataFolder, "covar_raster_PSC")
 
 inputDataFile <- args[1]
 outputFolder <- inputDataFile %>%
@@ -58,6 +61,9 @@ write.csv(occsData,
 #### ENVIROMENTAL VARIABLES####
 covarFileList <- list_files_with_exts(covarDataFolder, "tif")
 enviromentalVariables <- raster::stack(covarFileList)
+
+covarAOIFileList <- list_files_with_exts(covarAOIDataFolder, "tif")
+enviromentalVariablesAOI <- raster::stack(covarAOIFileList)
 
 #### VARIABLES + PRESENCIAS####
 sp_coor <- occsData[c("Dec_Long", "Dec_Lat")]
@@ -82,6 +88,8 @@ correlacion <- corSelect(
 select_var <- correlacion$selected.vars
 write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
 selectedVariables <- enviromentalVariables[[select_var]]
+
+selectedVariablesAOI <- environmentalVariablesAOI[[select_var]]
 
 ####TRAINNING###
 # Divides your data into trainining and test data sets. 70/30 %
@@ -196,7 +204,7 @@ apply(modelsAIC0, 1, predictAndSave,
       occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariables, prefix = "ENM_",
+      models = sp@models, data = selectedVariablesAOI, prefix = "ENM_",
       occs = occsCalibracion)
 #
 # ENM EN RASTER
