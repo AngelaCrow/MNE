@@ -89,7 +89,7 @@ select_var <- correlacion$selected.vars
 write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
 selectedVariables <- enviromentalVariables[[select_var]]
 
-selectedVariablesAOI <- environmentalVariablesAOI[[select_var]]
+selectedVariablesAOI <- enviromentalVariablesAOI[[select_var]]
 
 ####TRAINNING###
 # Divides your data into trainining and test data sets. 70/30 %
