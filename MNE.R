@@ -1,8 +1,11 @@
+# 
 # This code was developed by
-# - Angela P. Cuervo-Robayo ancuervo@gmail.com y
-# - Juan Martin Barrrios j.m.barrios@gmail.com.
-# It uses NicheToolBox package functions
-# of Luis Osorio: https://github.com/luismurao/nichetoolbox
+# - Angela P. Cuervo-Robayo ancuervo@gmail.com
+# - Juan M. Barrrios j.m.barrios@gmail.com
+# 
+# The clean_dup function was develop by Luis Osorio as part of the NicheToolbox
+# project [https://github.com/luismurao/nichetoolbox]
+#
 
 library("rgdal")
 library("fuzzySim")
@@ -27,19 +30,18 @@ if (length(args) == 0) {
   stop("Solo se acepta un parametro.\n", call. = FALSE)
 }
 
-# Data folder configuration
-baseDataFolder <- "./IUCN_data"
-
-# Directory of the shapePolygon to select species'  M area
-shapePath <- file.path(baseDataFolder, 'shapes')
+# Regionalization shapefile folder
+shapePath <- file.path('.', 'IUCN_data', 'shapes')
 shapeLayer <- "wwf_terr_ecos_a"
 regionalizacion <- readOGR(shapePath, shapeLayer)
 
-# Directory for covariables
-covarDataFolder <- file.path(baseDataFolder, "covar_rasters")
+# Raster covariables folder
+covarDataFolder <- file.path('.', 'IUCN_data', "covar_rasters")
 
-# Area of interest 
-covarAOIDataFolder <- file.path(baseDataFolder, "covar_raster_PSC")
+# Raster covariables folder where the model will be projected
+# IMPORTANT: The raster files on `covarDataFolder` and `covarAOIDataFolder` 
+# must have the same name in order to the model can be evaluated.
+covarAOIDataFolder <- file.path('.', 'IUCN_data', "covar_raster_PSC")
 
 inputDataFile <- args[1]
 outputFolder <- inputDataFile %>%
