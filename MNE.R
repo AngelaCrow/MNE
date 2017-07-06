@@ -208,33 +208,6 @@ apply(modelsAIC0, 1, predictAndSave,
 apply(modelsAIC0, 1, predictAndSave,
       models = sp@models, data = selectedVariablesAOI, prefix = "ENM_",
       occs = occsCalibracion)
-#
-# ENM EN RASTER
-# seleccionar raster del modelo más parsomonioso
-# predictions <- sp@predictions
-# model.delta.aic <- predictions[[delta_aic]]
-# writeRaster(model.delta.aic,
-#             file.path(outputFolder, "ENM_prediction_M_raw.tif"),
-#             overwrite = TRUE)
-
-# elegir los parametros de maxent del modelo más parsimonioso y
-# proyectar a otras variables
-# model.maxent <- sp@models[[delta_aic]]
-
-# Raster del modelo en la M, en escala logistica
-# model.in.m <- predict(model.maxent, env)
-#plot(model.in.m)
-# writeRaster(model.in.m,
-#             file.path(outputFolder, "ENM_prediction_M_log.tif"),
-#             overwrite = TRUE)
-
-##tranferirlo a otro tiempo o area mas grande
-# model.trans <- predict(model.maxent, selectedVariablesPSC)
-# plot(model.trans)
-# writeRaster(model.trans,
-#             file.path(outputFolder, "ENM_log.tif"),
-#             overwrite = TRUE)
-
 
 ####VALIDACION####
 #Independiente de umbral
