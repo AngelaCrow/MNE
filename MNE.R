@@ -212,7 +212,6 @@ apply(modelsAIC0, 1, predictAndSave,
       models = sp@models, data = selectedVariablesAOI, prefix = "ENM_",
       occs = occsCalibracion)
 
-
 ####VALIDACION####
 #Independiente de umbral
 #AUC
