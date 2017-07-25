@@ -7,28 +7,19 @@
 # project [https://github.com/luismurao/nichetoolbox]
 #
 
-library("rgdal")
-library("fuzzySim")
-library("ENMeval")
-library("ROCR")
-library("magrittr")
-library("dplyr")
-library("tools")
-library("data.table")
-library("raster")
+library("rgdal", quietly = TRUE)
+library("fuzzySim", quietly = TRUE)
+library("ENMeval", quietly = TRUE)
+library("ROCR", quietly = TRUE)
+library("magrittr", quietly = TRUE)
+library("dplyr", quietly = TRUE)
+library("tools", quietly = TRUE)
+library("data.table", quietly = TRUE)
+library("raster", quietly = TRUE)
 
 source("utils/clean_dup.R")
 
 set.seed(1)
-
-args = commandArgs(trailingOnly = TRUE)
-if (length(args) == 0) {
-  stop("Al menos un parametro es requerido (input file).\n", call. = FALSE)
-} else if (length(args) == 1) {
-  print(paste("Se calcula el modelo para", args[1]))
-} else {
-  stop("Solo se acepta un parametro.\n", call. = FALSE)
-}
 
 # Regionalization shapefile folder
 shapePath <- file.path('.', 'IUCN_data', 'shapes')
@@ -42,6 +33,15 @@ covarDataFolder <- file.path('.', 'IUCN_data', "covar_rasters")
 # IMPORTANT: The raster files on `covarDataFolder` and `covarAOIDataFolder` 
 # must have the same name in order to the model can be evaluated.
 covarAOIDataFolder <- file.path('.', 'IUCN_data', "covar_raster_PSC")
+
+args = commandArgs(trailingOnly = TRUE)
+if (length(args) == 0) {
+  stop("Please enter a single parameter (input file).\n", call. = FALSE)
+} else if (length(args) == 1) {
+  print(paste("Processing model for file ", args[1]))
+} else {
+  stop("Single parameter is needed (input file).\n", call. = FALSE)
+}
 
 inputDataFile <- args[1]
 outputFolder <- inputDataFile %>%
@@ -73,7 +73,10 @@ sp_coor <- occsData[c("Dec_Long", "Dec_Lat")]
 covarData <- raster::extract(enviromentalVariables, sp_coor)
 covarData <- cbind(occsData, covarData)
 
-covarData <- covarData[!is.na(covarData$bio_1), ]
+completeDataCases <- covarData %>% 
+  dplyr::select_(.dots=names(enviromentalVariables)) %>%
+  complete.cases
+covarData <- covarData[completeDataCases, ]
 
 ####SELECCION DE VARIABLES####
 speciesCol <- match("Presence", names(occsData))
@@ -208,32 +211,6 @@ apply(modelsAIC0, 1, predictAndSave,
 apply(modelsAIC0, 1, predictAndSave,
       models = sp@models, data = selectedVariablesAOI, prefix = "ENM_",
       occs = occsCalibracion)
-#
-# ENM EN RASTER
-# seleccionar raster del modelo más parsomonioso
-# predictions <- sp@predictions
-# model.delta.aic <- predictions[[delta_aic]]
-# writeRaster(model.delta.aic,
-#             file.path(outputFolder, "ENM_prediction_M_raw.tif"),
-#             overwrite = TRUE)
-
-# elegir los parametros de maxent del modelo más parsimonioso y
-# proyectar a otras variables
-# model.maxent <- sp@models[[delta_aic]]
-
-# Raster del modelo en la M, en escala logistica
-# model.in.m <- predict(model.maxent, env)
-#plot(model.in.m)
-# writeRaster(model.in.m,
-#             file.path(outputFolder, "ENM_prediction_M_log.tif"),
-#             overwrite = TRUE)
-
-##tranferirlo a otro tiempo o area mas grande
-# model.trans <- predict(model.maxent, selectedVariablesPSC)
-# plot(model.trans)
-# writeRaster(model.trans,
-#             file.path(outputFolder, "ENM_log.tif"),
-#             overwrite = TRUE)
 
 
 ####VALIDACION####
@@ -279,47 +256,3 @@ write.csv(resultsAUC,
           file = file.path(outputFolder, "data_auc.csv"),
           row.names = FALSE)
 
-# testpp <- raster::extract(model.in.m, occsValidacion)
-# abs <- raster::extract(model.in.m, bg.df)
-# combined <- c(testpp, abs)
-# label <- c(rep(1,length(testpp)),rep(0,length(abs)))
-# pred <- prediction(combined, label)
-# perf <- performance(pred, "tpr", "fpr")
-# auc <- performance(pred, "auc")@y.values[[1]]
-# auc
-# write.csv(auc,
-#           file = file.path(outputFolder, "data_auc.csv"),
-#           row.names = FALSE)
-
-#Dependiente de umbral
-# source("funciones_LAE.R")
-#reclasificar mapa de la calibracion
-# rcl.m <- na.omit(raster::extract(model.in.m, occsCalibracion))
-
-#usando el valor de minimo de idoneidad que tienen los puntos de occurencia
-# rcl.min <- min(rcl.m) # extraer el minimo valor de presencia
-
-# model.in.m.bin <- reclassify(model.in.m, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-# writeRaster(model.in.m.bin,
-#             file.path(outputFolder, "ENM_bin_min.tif"),
-#             overwrite = TRUE)
-
-# model.in.mg.MTPbin <- reclassify(model.trans, c(-Inf, rcl.min, 0, rcl.min, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-# writeRaster(model.in.mg.MTPbin,
-#             file.path(outputFolder, "ENM_binG_MTP.tif"),
-#             overwrite = TRUE)
-
-#10 percentil
-# rcl.10 <- quantile(na.omit(rcl.m), .10) # extraer valor por percentil
-
-# model.in.m.bin10 <- reclassify(model.in.m, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-# writeRaster(model.in.m.bin10,
-#             file.path(outputFolder, "ENM_bin_10.tif"),
-#             overwrite = TRUE)
-
-# model.in.mg.bin10 <- reclassify(model.trans, c(-Inf, rcl.10, 0, rcl.10, Inf, 1)) # reclasificar - cambie su valor en donde esta el valor decimal
-# writeRaster(model.in.mg.bin10,
-#             file.path(outputFolder, "ENM_binG_10.tif"),
-#             overwrite = TRUE)
-#
-# ##Para validar los modelos binarios usar el codigo que se llama AllMetrics.R.
