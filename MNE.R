@@ -124,7 +124,10 @@ writeOGR(poligonofilter, layer = 'poligonofilter', outputFolder, driver="ESRI Sh
 # extract by mask
 selectedVariablesCrop <- raster::crop(selectedVariables, poligonofilter)
 env <- raster::mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
-
+writeRaster(env,
+            file.path(outputFolder, ".asc"), 
+            bylayer = T, suffix='names',
+            overwrite = TRUE)
 # MAXENT
 # We used ENMeval packeage to estimate optimal model complexity (Muscarrella et al. 2014)
 # Modeling process, first separate the calibration and validation data
