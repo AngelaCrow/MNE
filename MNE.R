@@ -1,7 +1,7 @@
 # 
 # This code was developed by
-# - Angela P. Cuervo-Robayo ancuervo@gmail.com
 # - Juan M. Barrrios j.m.barrios@gmail.com
+# - Angela P. Cuervo-Robayo ancuervo@gmail.com
 # 
 # The clean_dup function was develop by Luis Osorio as part of the NicheToolbox
 # project [https://github.com/luismurao/nichetoolbox]
@@ -121,8 +121,8 @@ polydatadf <- dataenpoly[enpolyindex, ]
 id_polys <- unique(polydatadf$ECO_NAME)
 poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
 # extract by mask
-selectedVariablesCrop <- crop(selectedVariables, poligonofilter)
-env <- mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
+selectedVariablesCrop <- raster::crop(selectedVariables, poligonofilter)
+env <- raster::mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
 
 # MAXENT
 # We used ENMeval packeage to estimate optimal model complexity (Muscarrella et al. 2014)
