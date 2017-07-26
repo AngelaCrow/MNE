@@ -120,6 +120,7 @@ enpolyindex <- which(!is.na(dataenpoly$ECO_NAME))
 polydatadf <- dataenpoly[enpolyindex, ]
 id_polys <- unique(polydatadf$ECO_NAME)
 poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
+writeOGR(poligonofilter, layer = 'poligonofilter', outputFolder, driver="ESRI Shapefile")
 # extract by mask
 selectedVariablesCrop <- raster::crop(selectedVariables, poligonofilter)
 env <- raster::mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
