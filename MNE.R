@@ -125,7 +125,7 @@ writeOGR(poligonofilter, layer = 'poligonofilter', outputFolder, driver="ESRI Sh
 selectedVariablesCrop <- raster::crop(selectedVariables, poligonofilter)
 env <- raster::mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
 writeRaster(env,
-            file.path(outputFolder, ".asc"), 
+            file.path(outputFolder, ".tif"), 
             bylayer = T, suffix='names',
             overwrite = TRUE)
 # MAXENT
