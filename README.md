@@ -1,7 +1,7 @@
 # ModelosDarwinUICN
 
 This project is develop by Juan M. Barrios <j.m.barrios@gmail.com> and Angela P. 
-Cuervo <acuervo@gmail.com> to process data for the Darwin Initiative.
+Cuervo-Robayo <acuervo@gmail.com> to process data for the Darwin Initiative.
 
 The main goal is process species occurrence data to generate Specie Distribution
 Models, the `MNE.R` script is the responsible of this task. As an input the 
