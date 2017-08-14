@@ -142,10 +142,9 @@ occsValidacion <- covarData %>%
 
 # Background
 bg <- randomPoints(env[[1]], n = 10000)
-# bg <- randomPoints(env[[1]], n = 100)
 bg.df <- as.data.frame(bg)
 
-#test bg
+#Divide backgeound into train and test 
 sample.bg <- sample.int(
   nrow(bg.df),
   size = floor(0.7*nrow(bg.df))
@@ -156,8 +155,14 @@ bg.df$isTrain <- selectedValues.bg
 write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
           row.names = FALSE)
 
+#training background
+bg.df.cal <- bg.df %>%
+  dplyr::filter(isTrain == 1) %>%
+  dplyr::select(x, y)
+
+
 # ENMeval
-sp <- ENMevaluate(occsCalibracion, env, bg.df, RMvalues = seq(0.5, 4, 0.5),
+sp <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
                  method = "randomkfold", kfolds = 5, bin.output = TRUE,
                  parallel = TRUE, numCores = parallel::detectCores())
