@@ -129,7 +129,7 @@ writeRaster(env,
             bylayer = T, suffix='names',
             overwrite = TRUE)
 # MAXENT
-# We used ENMeval packeage to estimate optimal model complexity (Muscarrella et al. 2014)
+# We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
 # Modeling process, first separate the calibration and validation data
 occsCalibracion <- covarData %>%
   dplyr::filter(isTrain == 1) %>%
@@ -144,6 +144,15 @@ occsValidacion <- covarData %>%
 bg <- randomPoints(env[[1]], n = 10000)
 # bg <- randomPoints(env[[1]], n = 100)
 bg.df <- as.data.frame(bg)
+
+#test bg
+sample.bg <- sample.int(
+  nrow(bg.df),
+  size = floor(0.7*nrow(bg.df))
+)
+selectedValues.bg <- rep(0, nrow(bg.df)) %>% inset(sample.bg, 1)
+
+bg.df$isTrain <- selectedValues.bg
 write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
           row.names = FALSE)
 
