@@ -1,6 +1,6 @@
 PackratFormat: 1.4
 PackratVersion: 0.4.8.1
-RVersion: 3.4.0
+RVersion: 3.4.1
 Repos: CRAN=https://cran.rstudio.com/
 
 Package: BH
@@ -108,6 +108,11 @@ Source: CRAN
 Version: 3.5.0
 Hash: 471b2e2452dfb30fdc1dd6f1b567925a
 
+Package: hms
+Source: CRAN
+Version: 0.3
+Hash: 3fca8a1c97e6cfb297fe3f4690f82c58
+
 Package: iterators
 Source: CRAN
 Version: 1.0.8
@@ -145,10 +150,16 @@ Version: 2.5-8
 Hash: 482ae1a3a6a69ed9a1e607057b2737bc
 Requires: Rcpp, sp
 
+Package: readr
+Source: CRAN
+Version: 1.1.1
+Hash: 36bb0e1dc92b38dc4ebf419fdfa5cc7f
+Requires: BH, R6, Rcpp, hms, tibble
+
 Package: rgdal
 Source: CRAN
-Version: 1.2-7
-Hash: d79393d8e532c8da734a0735ce20c7da
+Version: 1.2-8
+Hash: 51faeb885cc7618a9d347a93570a2dbb
 Requires: sp
 
 Package: rlang

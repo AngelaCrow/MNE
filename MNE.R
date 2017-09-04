@@ -12,27 +12,26 @@ library("fuzzySim", quietly = TRUE)
 library("ENMeval", quietly = TRUE)
 library("ROCR", quietly = TRUE)
 library("magrittr", quietly = TRUE)
+library("readr", quietly = TRUE)
 library("dplyr", quietly = TRUE)
 library("tools", quietly = TRUE)
 library("data.table", quietly = TRUE)
 library("raster", quietly = TRUE)
 
-source("utils/clean_dup.R")
-
 set.seed(1)
 
 # Regionalization shapefile folder
-shapePath <- file.path('.', 'IUCN_data', 'shapes')
+shapePath <- '../IUCN_data/shapes/'
 shapeLayer <- "wwf_terr_ecos_a"
 regionalizacion <- readOGR(shapePath, shapeLayer)
 
 # Raster covariables folder
-covarDataFolder <- file.path('.', 'IUCN_data', "covar_rasters")
+covarDataFolder <- '../IUCN_data/covar_rasters'
 
 # Raster covariables folder where the model will be projected
 # IMPORTANT: The raster files on `covarDataFolder` and `covarAOIDataFolder` 
 # must have the same name in order to the model can be evaluated.
-covarAOIDataFolder <- file.path('.', 'IUCN_data', "covar_raster_PSC")
+covarAOIDataFolder <- '../IUCN_data/covar_raster_PSC'
 
 args = commandArgs(trailingOnly = TRUE)
 if (length(args) == 0) {
@@ -43,7 +42,9 @@ if (length(args) == 0) {
   stop("Single parameter is needed (input file).\n", call. = FALSE)
 }
 
-inputDataFile <- args[1]
+# Voy a probar con Physalis_subrepens.csv
+# inputDataFile <- args[1]
+inputDataFile <- '../IUCN_data/data_species/Physalis_subrepens.csv'
 outputFolder <- inputDataFile %>%
   basename %>%
   file_path_sans_ext
@@ -53,11 +54,15 @@ if (!dir.exists(outputFolder)) {
 }
 
 ####Cleaning duplicate records on a cell####
-occsData <- read.csv(inputDataFile, header = TRUE, stringsAsFactors = FALSE) %>%
-  clean_dup("Dec_Long", "Dec_Lat", 0.00833333333)
+crs.wgs84 <- sp::CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+occsData <- readr::read_csv(inputDataFile)
+sp::coordinates(occsData) <- c("Dec_Long", "Dec_Lat")
+sp::proj4string(occsData) <- crs.wgs84
 
-write.csv(occsData,
-          file = file.path(outputFolder, "clean_data.csv"),
+occsData <- sp::remove.duplicates(occsData, zero=0.00833333333)
+
+write.csv(cbind(occsData@data, coordinates(occsData)),
+          file = file.path(outputFolder, "data_wo_duplicates.csv"),
           row.names = FALSE)
 
 #### ENVIROMENTAL VARIABLES####
@@ -68,12 +73,10 @@ covarAOIFileList <- list_files_with_exts(covarAOIDataFolder, "tif")
 enviromentalVariablesAOI <- raster::stack(covarAOIFileList)
 
 #### VARIABLES + PRESENCIAS####
-sp_coor <- occsData[c("Dec_Long", "Dec_Lat")]
-
-covarData <- raster::extract(enviromentalVariables, sp_coor)
+covarData <- raster::extract(enviromentalVariables, occsData)
 covarData <- cbind(occsData, covarData)
 
-completeDataCases <- covarData %>% 
+completeDataCases <- covarData@data %>% 
   dplyr::select_(.dots=names(enviromentalVariables)) %>%
   complete.cases
 covarData <- covarData[completeDataCases, ]
@@ -83,7 +86,7 @@ speciesCol <- match("Presence", names(occsData))
 varCols <- ncol(occsData) + 1
 
 correlacion <- corSelect(
-  data = covarData,
+  data = covarData@data,
   sp.cols = speciesCol,
   var.cols = varCols:ncol(covarData),
   cor.thresh = 0.8,
@@ -92,8 +95,8 @@ correlacion <- corSelect(
 
 select_var <- correlacion$selected.vars
 write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
-selectedVariables <- enviromentalVariables[[select_var]]
 
+selectedVariables <- enviromentalVariables[[select_var]]
 selectedVariablesAOI <- enviromentalVariablesAOI[[select_var]]
 
 ####TRAINNING###
@@ -106,43 +109,43 @@ sampleDataPoints <- sample.int(
 selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
 covarData$isTrain <- selectedValues
-write.csv(covarData, file.path(outputFolder, "finaldatabase.csv"),
+write.csv(cbind(covarData@data, coordinates(covarData)), file.path(outputFolder, "speciesCovarDB.csv"),
           row.names = FALSE)
 
 # Selects the M of the species, base on Olson´s ecoregions
 # Download: https://www.worldwildlife.org/publications/terrestrial-ecoregions-of-the-world
-coordinates(sp_coor) <- ~Dec_Long+Dec_Lat
-proj4string(sp_coor) <- proj4string(regionalizacion)
-
 # Intersects the occurrence data with polygons
-dataenpoly <- over(sp_coor, regionalizacion, fn = NULL)
-enpolyindex <- which(!is.na(dataenpoly$ECO_NAME))
-polydatadf <- dataenpoly[enpolyindex, ]
-id_polys <- unique(polydatadf$ECO_NAME)
-poligonofilter <- regionalizacion[regionalizacion$ECO_NAME %in% id_polys, ]
-writeOGR(poligonofilter, layer = 'poligonofilter', outputFolder, driver="ESRI Shapefile")
-# extract by mask
-selectedVariablesCrop <- raster::crop(selectedVariables, poligonofilter)
-env <- raster::mask(selectedVariablesCrop, poligonofilter) #Species variables delimited by M
+ecoregionsOfInterest <- sp::over(occsData, regionalizacion) %>%
+  filter(!is.na(ECO_ID))
+
+idsEcoRegions <- unique(ecoregionsOfInterest$ECO_ID)
+polygonsOfInterest <- regionalizacion[regionalizacion$ECO_ID %in% idsEcoRegions, ]
+writeOGR(polygonsOfInterest, layer = 'ecoregionsOI', outputFolder, driver="ESRI Shapefile")
+
+# Mask rasters with ecoregions of interest
+selectedVariablesCrop <- raster::crop(selectedVariables, polygonsOfInterest)
+env <- raster::mask(selectedVariablesCrop, 
+                    polygonsOfInterest) #Species variables delimited by M
 writeRaster(env,
-            file.path(outputFolder, ".tif"), 
+            file.path(outputFolder, "covars.tif"), 
             bylayer = T, suffix='names',
             overwrite = TRUE)
+
 # MAXENT
 # We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
 # Modeling process, first separate the calibration and validation data
 occsCalibracion <- covarData %>%
+  as.data.frame() %>%
   dplyr::filter(isTrain == 1) %>%
   dplyr::select(Dec_Long, Dec_Lat)
 
 occsValidacion <- covarData %>%
+  as.data.frame() %>%
   dplyr::filter(isTrain == 0) %>%
-  dplyr::select(Dec_Long, Dec_Lat) %>%
-  as.data.frame
+  dplyr::select(Dec_Long, Dec_Lat) 
 
 # Background
-bg <- randomPoints(env[[1]], n = 10000)
-bg.df <- as.data.frame(bg)
+bg.df <- dismo::randomPoints(env[[1]], n = 10000) %>% as.data.frame()
 
 #Divide backgeound into train and test 
 sample.bg <- sample.int(
@@ -152,7 +155,7 @@ sample.bg <- sample.int(
 selectedValues.bg <- rep(0, nrow(bg.df)) %>% inset(sample.bg, 1)
 
 bg.df$isTrain <- selectedValues.bg
-write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
+write.csv(bg.df, file = file.path(outputFolder, "background_points.csv"),
           row.names = FALSE)
 
 #training background
@@ -164,8 +167,9 @@ bg.df.cal <- bg.df %>%
 # ENMeval
 sp <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                 method = "randomkfold", kfolds = 5, bin.output = TRUE,
-                 parallel = TRUE, numCores = parallel::detectCores())
+                 method = "randomkfold", kfolds = 2, bin.output = TRUE,
+                 parallel = TRUE, numCores = parallel::detectCores()-1, 
+                 updateProgress = TRUE)
 
 resultados_enmeval <- sp@results
 write.csv(resultados_enmeval,
