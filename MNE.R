@@ -2,9 +2,6 @@
 # This code was developed by
 # - Juan M. Barrrios j.m.barrios@gmail.com
 # - Angela P. Cuervo-Robayo ancuervo@gmail.com
-# 
-# The clean_dup function was develop by Luis Osorio as part of the NicheToolbox
-# project [https://github.com/luismurao/nichetoolbox]
 #
 
 library("rgdal", quietly = TRUE)
@@ -15,23 +12,22 @@ library("magrittr", quietly = TRUE)
 library("readr", quietly = TRUE)
 library("dplyr", quietly = TRUE)
 library("tools", quietly = TRUE)
-library("data.table", quietly = TRUE)
 library("raster", quietly = TRUE)
 
 set.seed(1)
 
 # Regionalization shapefile folder
-shapePath <- '../IUCN_data/shapes/'
+shapePath <- '../data/shapes/'
 shapeLayer <- "wwf_terr_ecos_a"
-regionalizacion <- readOGR(shapePath, shapeLayer)
+regionalizacion <- rgdal::readOGR(shapePath, shapeLayer)
 
 # Raster covariables folder
-covarDataFolder <- '../IUCN_data/covar_rasters'
+covarDataFolder <- '../data/covar_rasters'
 
 # Raster covariables folder where the model will be projected
 # IMPORTANT: The raster files on `covarDataFolder` and `covarAOIDataFolder` 
 # must have the same name in order to the model can be evaluated.
-covarAOIDataFolder <- '../IUCN_data/covar_raster_PSC'
+covarAOIDataFolder <- '../data/covar_raster_PSC'
 
 args = commandArgs(trailingOnly = TRUE)
 if (length(args) == 0) {
@@ -44,7 +40,7 @@ if (length(args) == 0) {
 
 # Voy a probar con Physalis_subrepens.csv
 # inputDataFile <- args[1]
-inputDataFile <- '../IUCN_data/data_species/Physalis_subrepens.csv'
+inputDataFile <- '../data/Physalis_subrepens.csv'
 outputFolder <- inputDataFile %>%
   basename %>%
   file_path_sans_ext
@@ -165,13 +161,13 @@ bg.df.cal <- bg.df %>%
 
 
 # ENMeval
-sp <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
+sp.models <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
                  method = "randomkfold", kfolds = 2, bin.output = TRUE,
                  parallel = TRUE, numCores = parallel::detectCores()-1, 
                  updateProgress = TRUE)
 
-resultados_enmeval <- sp@results
+resultados_enmeval <- sp.models@results
 write.csv(resultados_enmeval,
           file = file.path(outputFolder, "enmeval_results.csv"),
           row.names = FALSE)
@@ -194,7 +190,7 @@ saveRasterWithSettings <- function(models, predictions, prefix) {
 }
 
 apply(modelsAIC0, 1, saveRasterWithSettings,
-      predictions = sp@predictions, prefix = "ENM_prediction_M_raw_")
+      predictions = sp.models@predictions, prefix = "ENM_prediction_M_raw_")
 
 predictAndSave <- function(model, models, data, prefix, occs) {
   choicedModel <- models[[as.integer(model["index"])]]
@@ -227,11 +223,11 @@ predictAndSave <- function(model, models, data, prefix, occs) {
 }
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env, prefix = "ENM_prediction_M_",
+      models = sp.models@models, data = env, prefix = "ENM_prediction_M_",
       occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariablesAOI, prefix = "ENM_",
+      models = sp.models@models, data = selectedVariablesAOI, prefix = "ENM_",
       occs = occsCalibracion)
 
 ####VALIDACION####
@@ -242,7 +238,7 @@ aucCalculator <- function(prediction, occs, bgPoints) {
   labels <- c(rep(1, nrow(occs)),
               rep(0, nrow(bgPoints)))
   scores <- raster::extract(prediction, data)
-  pred <- prediction(scores, labels)
+  pred <- ROCR::prediction(scores, labels)
   # perf <- performance(pred, "tpr", "fpr")
   auc <- performance(pred, "auc")@y.values[[1]]
   return(auc)
@@ -250,10 +246,10 @@ aucCalculator <- function(prediction, occs, bgPoints) {
 
 aucStatistcs <- function(model, models, env, occs, bgPoints) {
   result <- apply(model, 1, function(x, models, env, occs, bgPoints){
-    choicedModel <- models[[as.integer(model["index"])]]
+    choicedModel <- models[[as.integer(x["index"])]]
     prediction <- dismo::predict(choicedModel, env)
     auc <- aucCalculator(prediction, occs, bgPoints)
-    return(c(model["settings"], auc))
+    return(c(x["settings"], auc))
   },
   models = models,
   env = env,
@@ -272,7 +268,13 @@ aucStatistcs <- function(model, models, env, occs, bgPoints) {
   return(result)
 }
 
-resultsAUC <- aucStatistcs(modelsAIC0, sp@models, env, occsValidacion, bg.df)
+
+# Testing background
+bg.df.test <- bg.df %>%
+  dplyr::filter(isTrain == 0) %>%
+  dplyr::select(x, y)
+
+resultsAUC <- aucStatistcs(modelsAIC0, sp.models@models, env, occsValidacion, bg.df.test)
 write.csv(resultsAUC,
           file = file.path(outputFolder, "data_auc.csv"),
           row.names = FALSE)
