@@ -128,7 +128,8 @@ writeRaster(env,
             file.path(outputFolder, ".tif"), 
             bylayer = T, suffix='names',
             overwrite = TRUE)
-# MAXENT
+
+# MAXENT calibration
 # We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
 # Modeling process, first separate the calibration and validation data
 occsCalibracion <- covarData %>%
@@ -179,8 +180,7 @@ modelsAIC0 <- resultados_enmeval %>%
   select(index, settings) %>%
   mutate(index = as.numeric(index), settings = as.character(settings))
 
-
-
+# save species niche (raw output) model over raster 
 saveRasterWithSettings <- function(models, predictions, prefix) {
   raster::writeRaster(predictions[[models["settings"]]],
               file.path(outputFolder, paste0(prefix,
@@ -192,6 +192,7 @@ saveRasterWithSettings <- function(models, predictions, prefix) {
 apply(modelsAIC0, 1, saveRasterWithSettings,
       predictions = sp@predictions, prefix = "ENM_prediction_M_raw_")
 
+# predict chicemodel over current climate variables
 predictAndSave <- function(model, models, data, prefix, occs) {
   choicedModel <- models[[as.integer(model["index"])]]
   predictions <- dismo::predict(choicedModel, data)
@@ -202,6 +203,7 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                                                      ".tif")),
                       overwrite = TRUE)
 
+#Threshold prection using minimum traning (min) and 10 percentil (q10) values  
   occsValues <- raster::extract(predictions, occs)
   minValOcc <- min(occsValues, na.rm = TRUE)
   raster::writeRaster(reclassify(predictions,
