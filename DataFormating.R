@@ -51,6 +51,7 @@ write.csv(cbind(occsData@data, coordinates(occsData)),
           row.names = FALSE)
 
 #### ENVIROMENTAL VARIABLES####
+#Present
 covarFileList <- list_files_with_exts(covarDataFolder, "tif")
 enviromentalVariables <- raster::stack(covarFileList)
 
@@ -83,4 +84,25 @@ write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
 
 selectedVariables <- enviromentalVariables[[select_var]]
 selectedVariablesAOI <- enviromentalVariablesAOI[[select_var]]
+
+#Future
+covarAOIFileList_fc45 <- list_files_with_exts(covarAOIDataFolder_fc45, "tif")
+enviromentalVariablesAOI_fc45 <- raster::stack(covarAOIFileList_fc45)
+selectedVariablesAOI_fc45 <- enviromentalVariablesAOI_fc45[[select_var]]
+
+covarAOIFileList_fc85 <- list_files_with_exts(covarAOIDataFolder_fc85, "tif")
+enviromentalVariablesAOI_fc85 <- raster::stack(covarAOIFileList_fc85)
+selectedVariablesAOI_fc85 <- enviromentalVariablesAOI_fc85[[select_var]]
+
+covarAOIFileList_fl45 <- list_files_with_exts(covarAOIDataFolder_fl45, "tif")
+enviromentalVariablesAOI_fl45 <- raster::stack(covarAOIFileList_fl45)
+selectedVariablesAOI_fl45 <- enviromentalVariablesAOI_fl45[[select_var]]
+
+covarAOIFileList_fl85 <- list_files_with_exts(covarAOIDataFolder_fl85, "tif")
+enviromentalVariablesAOI_fl85 <- raster::stack(covarAOIFileList_fl85)
+selectedVariablesAOI_fl85 <- enviromentalVariablesAOI_fl85[[select_var]]
+
+
+
+
 

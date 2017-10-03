@@ -10,7 +10,7 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                                                      ".tif")),
                       overwrite = TRUE)
   
-  #Threshold prection using minimum traning (min) and 10 percentil (q10) values  
+#Threshold prection using minimum traning (min) and 10 percentil (q10) values  
   occsValues <- raster::extract(predictions, occs)
   minValOcc <- min(occsValues, na.rm = TRUE)
   raster::writeRaster(reclassify(predictions,
@@ -37,4 +37,20 @@ apply(modelsAIC0, 1, predictAndSave,
 
 apply(modelsAIC0, 1, predictAndSave,
       models = sp@models, data = selectedVariablesAOI, prefix = "ENM_",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = selectedVariablesAOI_fc45, prefix = "ENM_fc45",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = selectedVariablesAOI_fc85, prefix = "ENM_fc85",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = selectedVariablesAOI_fl45, prefix = "ENM_fl45",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = selectedVariablesAOI_fl85, prefix = "ENM_fl85",
       occs = occsCalibracion)
