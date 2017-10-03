@@ -16,6 +16,7 @@ library("raster", quietly = TRUE)
 
 set.seed(1)
 
+####DataFormating ####
 # Regionalization shapefile folder
 shapePath <- '../data/shapes/'
 shapeLayer <- "wwf_terr_ecos_a"
@@ -112,7 +113,7 @@ writeRaster(env,
             bylayer = T, suffix='names',
             overwrite = TRUE)
 
-####TRAINNING###
+#### Calibration ####
 # Divides your data into trainining and test data sets. 70/30 %
 sampleDataPoints <- sample.int(
   nrow(covarData),
@@ -189,8 +190,9 @@ saveRasterWithSettings <- function(models, predictions, prefix) {
 apply(modelsAIC0, 1, saveRasterWithSettings,
       predictions = sp.models@predictions, prefix = "ENM_prediction_M_raw_")
 
-# Predict model over current climate
+#### Projection ####
 
+# Predict model over current climate
 # predict choicemodel over current climate variables
 predictAndSave <- function(model, models, data, prefix, occs) {
   choicedModel <- models[[as.integer(model["index"])]]
@@ -231,8 +233,9 @@ apply(modelsAIC0, 1, predictAndSave,
       models = sp.models@models, data = selectedVariablesAOI, prefix = "ENM_",
       occs = occsCalibracion)
 
-####VALIDACION####
-#Independiente de umbral
+####ENMTest####
+#Threslhold independent
+
 #AUC
 aucCalculator <- function(prediction, occs, bgPoints) {
   data <- rbind(occs, setNames(bgPoints, names(occs)))
