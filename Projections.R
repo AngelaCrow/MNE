@@ -10,9 +10,30 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                                                      ".tif")),
                       overwrite = TRUE)
   
+  apply(modelsAIC0, 1, predictAndSave,
+        models = sp@models, data = env, prefix = "ENM_",
+        occs = occsCalibracion)
+  
+  apply(modelsAIC0, 1, predictAndSave,
+        models = sp@models, data = env_fc45, prefix = "ENM_fc45",
+        occs = occsCalibracion)
+  
+  apply(modelsAIC0, 1, predictAndSave,
+        models = sp@models, data = env_fc85, prefix = "ENM_fc85",
+        occs = occsCalibracion)
+  
+  apply(modelsAIC0, 1, predictAndSave,
+        models = sp@models, data = env_fl45, prefix = "ENM_fl45",
+        occs = occsCalibracion)
+  
+  apply(modelsAIC0, 1, predictAndSave,
+        models = sp@models, data = env_fl85, prefix = "ENM_fl85",
+        occs = occsCalibracion)
+  
 #Threshold prection using minimum traning (min) and 10 percentil (q10) values  
   occsValues <- raster::extract(predictions, occs)
-  minValOcc <- min(occsValues, na.rm = TRUE)
+ 
+   minValOcc <- min(occsValues, na.rm = TRUE)
   raster::writeRaster(reclassify(predictions,
                                  c(-Inf, minValOcc, 0, minValOcc, Inf, 1)),
                       file.path(outputFolder, paste0(prefix,
@@ -31,26 +52,3 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                       overwrite = TRUE)
 }
 
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env, prefix = "ENM_prediction_M_",
-      occs = occsCalibracion)
-
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariablesAOI, prefix = "ENM_",
-      occs = occsCalibracion)
-
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariablesAOI_fc45, prefix = "ENM_fc45",
-      occs = occsCalibracion)
-
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariablesAOI_fc85, prefix = "ENM_fc85",
-      occs = occsCalibracion)
-
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariablesAOI_fl45, prefix = "ENM_fl45",
-      occs = occsCalibracion)
-
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = selectedVariablesAOI_fl85, prefix = "ENM_fl85",
-      occs = occsCalibracion)
