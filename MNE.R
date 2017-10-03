@@ -38,9 +38,7 @@ if (length(args) == 0) {
   stop("Single parameter is needed (input file).\n", call. = FALSE)
 }
 
-# Voy a probar con Physalis_subrepens.csv
-# inputDataFile <- args[1]
-inputDataFile <- '../data/Physalis_subrepens.csv'
+inputDataFile <- args[1]
 outputFolder <- inputDataFile %>%
   basename %>%
   file_path_sans_ext
