@@ -93,19 +93,6 @@ write(select_var, file = file.path(outputFolder, "selected_variables.txt"))
 selectedVariables <- enviromentalVariables[[select_var]]
 selectedVariablesAOI <- enviromentalVariablesAOI[[select_var]]
 
-####TRAINNING###
-# Divides your data into trainining and test data sets. 70/30 %
-sampleDataPoints <- sample.int(
-  nrow(covarData),
-  size = floor(0.7*nrow(covarData))
-)
-
-selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
-
-covarData$isTrain <- selectedValues
-write.csv(cbind(covarData@data, coordinates(covarData)), file.path(outputFolder, "speciesCovarDB.csv"),
-          row.names = FALSE)
-
 # Selects the M of the species, base on Olson´s ecoregions
 # Download: https://www.worldwildlife.org/publications/terrestrial-ecoregions-of-the-world
 # Intersects the occurrence data with polygons
@@ -124,6 +111,19 @@ writeRaster(env,
             file.path(outputFolder, "covars.tif"), 
             bylayer = T, suffix='names',
             overwrite = TRUE)
+
+####TRAINNING###
+# Divides your data into trainining and test data sets. 70/30 %
+sampleDataPoints <- sample.int(
+  nrow(covarData),
+  size = floor(0.7*nrow(covarData))
+)
+
+selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
+
+covarData$isTrain <- selectedValues
+write.csv(cbind(covarData@data, coordinates(covarData)), file.path(outputFolder, "speciesCovarDB.csv"),
+          row.names = FALSE)
 
 # MAXENT calibration
 # We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
