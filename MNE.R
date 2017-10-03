@@ -192,7 +192,7 @@ saveRasterWithSettings <- function(models, predictions, prefix) {
 apply(modelsAIC0, 1, saveRasterWithSettings,
       predictions = sp@predictions, prefix = "ENM_prediction_M_raw_")
 
-# predict chicemodel over current climate variables
+# predict choicemodel over current climate variables
 predictAndSave <- function(model, models, data, prefix, occs) {
   choicedModel <- models[[as.integer(model["index"])]]
   predictions <- dismo::predict(choicedModel, data)
