@@ -10,26 +10,6 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                                                      ".tif")),
                       overwrite = TRUE)
   
-  apply(modelsAIC0, 1, predictAndSave,
-        models = sp@models, data = env, prefix = "ENM_",
-        occs = occsCalibracion)
-  
-  apply(modelsAIC0, 1, predictAndSave,
-        models = sp@models, data = env_fc45, prefix = "ENM_fc45",
-        occs = occsCalibracion)
-  
-  apply(modelsAIC0, 1, predictAndSave,
-        models = sp@models, data = env_fc85, prefix = "ENM_fc85",
-        occs = occsCalibracion)
-  
-  apply(modelsAIC0, 1, predictAndSave,
-        models = sp@models, data = env_fl45, prefix = "ENM_fl45",
-        occs = occsCalibracion)
-  
-  apply(modelsAIC0, 1, predictAndSave,
-        models = sp@models, data = env_fl85, prefix = "ENM_fl85",
-        occs = occsCalibracion)
-  
 #Threshold prection using minimum traning (min) and 10 percentil (q10) values  
   occsValues <- raster::extract(predictions, occs)
  
@@ -52,3 +32,22 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                       overwrite = TRUE)
 }
 
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = env, prefix = "ENM_",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = env_fc45, prefix = "ENM_fc45",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = env_fc85, prefix = "ENM_fc85",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = env_fl45, prefix = "ENM_fl45",
+      occs = occsCalibracion)
+
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp@models, data = env_fl85, prefix = "ENM_fl85",
+      occs = occsCalibracion)
