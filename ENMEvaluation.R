@@ -1,5 +1,6 @@
-####VALIDACION####
-#Independiente de umbral
+####ENMTest####
+#Threslhold independent
+
 #AUC
 aucCalculator <- function(prediction, occs, bgPoints) {
   data <- rbind(occs, setNames(bgPoints, names(occs)))

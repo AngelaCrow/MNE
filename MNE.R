@@ -191,8 +191,6 @@ apply(modelsAIC0, 1, saveRasterWithSettings,
       predictions = sp.models@predictions, prefix = "ENM_prediction_M_raw_")
 
 #### Projection ####
-
-# Predict model over current climate
 # predict choicemodel over current climate variables
 predictAndSave <- function(model, models, data, prefix, occs) {
   choicedModel <- models[[as.integer(model["index"])]]
@@ -204,7 +202,7 @@ predictAndSave <- function(model, models, data, prefix, occs) {
                                                      ".tif")),
                       overwrite = TRUE)
 
-#Threshold prection using minimum traning (min) and 10 percentil (q10) values  
+#Threshold prediction using minimum traning (min) and 10 percentil (q10) values  
   occsValues <- raster::extract(predictions, occs)
   minValOcc <- min(occsValues, na.rm = TRUE)
   raster::writeRaster(reclassify(predictions,

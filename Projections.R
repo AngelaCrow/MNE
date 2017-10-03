@@ -1,4 +1,4 @@
-
+#### Projections ####
 # predict choicemodel over current climate variables
 predictAndSave <- function(model, models, data, prefix, occs) {
   choicedModel <- models[[as.integer(model["index"])]]

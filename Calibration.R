@@ -1,18 +1,31 @@
+#### Calibration ####
+# Divides your data into trainining and test data sets. 70/30 %
+sampleDataPoints <- sample.int(
+  nrow(covarData),
+  size = floor(0.7*nrow(covarData))
+)
+
+selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
+
+covarData$isTrain <- selectedValues
+write.csv(cbind(covarData@data, coordinates(covarData)), file.path(outputFolder, "speciesCovarDB.csv"),
+          row.names = FALSE)
+
 # MAXENT calibration
 # We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
 # Modeling process, first separate the calibration and validation data
 occsCalibracion <- covarData %>%
+  as.data.frame() %>%
   dplyr::filter(isTrain == 1) %>%
   dplyr::select(Dec_Long, Dec_Lat)
 
 occsValidacion <- covarData %>%
+  as.data.frame() %>%
   dplyr::filter(isTrain == 0) %>%
-  dplyr::select(Dec_Long, Dec_Lat) %>%
-  as.data.frame
+  dplyr::select(Dec_Long, Dec_Lat) 
 
 # Background
-bg <- randomPoints(env[[1]], n = 10000)
-bg.df <- as.data.frame(bg)
+bg.df <- dismo::randomPoints(env[[1]], n = 10000) %>% as.data.frame()
 
 #Divide backgeound into train and test 
 sample.bg <- sample.int(
@@ -22,7 +35,7 @@ sample.bg <- sample.int(
 selectedValues.bg <- rep(0, nrow(bg.df)) %>% inset(sample.bg, 1)
 
 bg.df$isTrain <- selectedValues.bg
-write.csv(bg.df, file = file.path(outputFolder, "background_data.csv"),
+write.csv(bg.df, file = file.path(outputFolder, "background_points.csv"),
           row.names = FALSE)
 
 #training background
@@ -32,12 +45,13 @@ bg.df.cal <- bg.df %>%
 
 
 # ENMeval
-sp <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
-                  fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                  method = "randomkfold", kfolds = 5, bin.output = TRUE,
-                  parallel = TRUE, numCores = parallel::detectCores())
+sp.models <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
+                         fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
+                         method = "randomkfold", kfolds = 2, bin.output = TRUE,
+                         parallel = TRUE, numCores = parallel::detectCores()-1, 
+                         updateProgress = TRUE)
 
-resultados_enmeval <- sp@results
+resultados_enmeval <- sp.models@results
 write.csv(resultados_enmeval,
           file = file.path(outputFolder, "enmeval_results.csv"),
           row.names = FALSE)
@@ -48,3 +62,15 @@ modelsAIC0 <- resultados_enmeval %>%
   filter(delta.AICc == 0) %>%
   select(index, settings) %>%
   mutate(index = as.numeric(index), settings = as.character(settings))
+
+# save species niche (raw output) model over raster 
+saveRasterWithSettings <- function(models, predictions, prefix) {
+  raster::writeRaster(predictions[[models["settings"]]],
+                      file.path(outputFolder, paste0(prefix,
+                                                     models["settings"],
+                                                     ".tif")),
+                      overwrite = TRUE)
+}
+
+apply(modelsAIC0, 1, saveRasterWithSettings,
+      predictions = sp.models@predictions, prefix = "ENM_prediction_M_raw_")

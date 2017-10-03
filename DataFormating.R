@@ -1,5 +1,5 @@
 
-#### Input data ####
+#### DataFormating ####
 # Regionalization shapefile folder
 shapePath <- '../data/shapes/'
 shapeLayer <- "wwf_terr_ecos_a" 
@@ -47,7 +47,6 @@ occsData <- sp::remove.duplicates(occsData, zero=0.00833333333)
 write.csv(cbind(occsData@data, coordinates(occsData)),
           file = file.path(outputFolder, "data_wo_duplicates.csv"),
           row.names = FALSE)
-
 
 #### ENVIROMENTAL VARIABLES####
 #Present
