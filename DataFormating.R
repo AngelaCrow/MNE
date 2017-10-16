@@ -2,6 +2,23 @@
 library(devtools)
 install_github("CONABIO/ENMeval")
 
+# This code was developed by
+# - Juan M. Barrrios j.m.barrios@gmail.com
+# - Angela P. Cuervo-Robayo ancuervo@gmail.com
+#
+
+library("rgdal", quietly = TRUE)
+library("fuzzySim", quietly = TRUE)
+library("ENMeval", quietly = TRUE)
+library("ROCR", quietly = TRUE)
+library("magrittr", quietly = TRUE)
+library("readr", quietly = TRUE)
+library("dplyr", quietly = TRUE)
+library("tools", quietly = TRUE)
+library("raster", quietly = TRUE)
+
+set.seed(1)
+
 #### DataFormating ####
 # Regionalization shapefile folder
 shapePath <- 'C:/CONABIO/UICN_data/shapes'
