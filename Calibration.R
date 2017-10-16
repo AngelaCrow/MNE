@@ -52,6 +52,7 @@ sp.models <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4,
                          updateProgress = TRUE)
 
 resultados_enmeval <- sp.models@results
+
 write.csv(resultados_enmeval,
           file = file.path(outputFolder, "enmeval_results.csv"),
           row.names = FALSE)

@@ -33,21 +33,21 @@ predictAndSave <- function(model, models, data, prefix, occs) {
 }
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env, prefix = "ENM_",
+      models = sp.models@models, data = env, prefix = "ENM_",
       occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env_fc45, prefix = "ENM_fc45",
+      models = sp.models@models, data = env_fc45, prefix = "ENM_fc45",
       occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env_fc85, prefix = "ENM_fc85",
+      models = sp.models@models, data = env_fc85, prefix = "ENM_fc85",
       occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env_fl45, prefix = "ENM_fl45",
+      models = sp.models@models, data = env_fl45, prefix = "ENM_fl45",
       occs = occsCalibracion)
 
 apply(modelsAIC0, 1, predictAndSave,
-      models = sp@models, data = env_fl85, prefix = "ENM_fl85",
+      models = sp.models@models, data = env_fl85, prefix = "ENM_fl85",
       occs = occsCalibracion)

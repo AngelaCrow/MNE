@@ -1,31 +1,36 @@
 
+library(devtools)
+install_github("CONABIO/ENMeval")
+
 #### DataFormating ####
 # Regionalization shapefile folder
-shapePath <- '../data/shapes/'
+shapePath <- 'C:/CONABIO/UICN_data/shapes'
 shapeLayer <- "wwf_terr_ecos_a" 
 regionalizacion <- rgdal::readOGR(shapePath, shapeLayer)
 
 # Present raster covariables folder
-covarDataFolder <- '../data/covar_presente' 
+covarDataFolder <- 'C:/CONABIO/UICN_data/covar_presente' 
 # IMPORTANT: The raster files on Present covarDataFolder and Future covarDataFolder
 # must have the same name in order to the model can be evaluated.
 
 # Future climate (2015-2039) and two rcp´s
-covarDataFolder_fc45 <- '../data/covar_fc45'
-covarDataFolder_fc85 <- '../data/covar_fc85'
+covarDataFolder_fc45 <- 'C:/CONABIO/UICN_data/covar_fc45'
+covarDataFolder_fc85 <- 'C:/CONABIO/UICN_data/covar_fc85'
 # Future climate (2079-2099) and two rcp´s
-covarDataFolder_fl45 <- '../data/covar_fl45'
-covarDataFolder_fl85 <- '../data/covar_fl85'
+covarDataFolder_fl45 <- 'C:/CONABIO/UICN_data/covar_fl45'
+covarDataFolder_fl85 <- 'C:/CONABIO/UICN_data/covar_fl85'
 
 # Esta parte necesita ser explicada
-args = commandArgs(trailingOnly = TRUE)
-if (length(args) == 0) {
-  stop("Please enter a single parameter (input file).\n", call. = FALSE)
-} else if (length(args) == 1) {
-  print(paste("Processing model for file ", args[1]))
-} else {
-  stop("Single parameter is needed (input file).\n", call. = FALSE)
-}
+args <- list.files("C:/CONABIO/UICN_data/Phaseolus", pattern = "*.csv$",full.names = TRUE)
+
+#args = commandArgs(trailingOnly = TRUE)
+#if (length(args) == 0) {
+ # stop("Please enter a single parameter (input file).\n", call. = FALSE)
+#} else if (length(args) == 1) {
+ # print(paste("Processing model for file ", args[1]))
+#} else {
+ # stop("Single parameter is needed (input file).\n", call. = FALSE)
+#}
 
 inputDataFile <- args[1]
 outputFolder <- inputDataFile %>%
