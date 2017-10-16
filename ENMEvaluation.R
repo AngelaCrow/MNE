@@ -49,7 +49,3 @@ write.csv(resultsAUC,
           file = file.path(outputFolder, "data_auc.csv"),
           row.names = FALSE)
 
-combined <- cbind(occsValidacion, bg.df.test)
-label <- c(rep(1, length(occsValidacion$Dec_Long)), rep(0, length(bg.df.test$x)))
-pred <- cbind(combined, label)
-
