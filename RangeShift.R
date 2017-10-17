@@ -32,6 +32,7 @@ reportaFuturo <- function(raster_presente_bin, raster_futuro_bin){
   return(list(stats=raster::freq(result, useNA='no'),
               raster_cambio=result))
 }
+
 sp_models <- list.files(path = "acutiacuti",
                         pattern = "*min_L_0.5.tif$",full.names = TRUE)
 sp_models
@@ -47,13 +48,9 @@ plot(fl45bin)
 fl85bin<-raster(sp_models[5])
 plot(fl85bin)
 
-m <- c(0, 0, 0,  0,1, 10)
-rclmat <- matrix(m, ncol=2, byrow=TRUE)
+proyeccion <- reportaFuturo(rclmat, fc45bin)
 
-
-rc_fc45bin <- reclassify(fc45bin, rclmat)
-rc_fc45bin
-plot(rc_fc45bin)
-rangeShift <- presente+rc_fc45bin
-plot(rangeShift)
-raster::writeRaster(rangeShift, file.path("C:/CONABIO/ModelosDarwinUICN/acutiacuti/_rsfc45.tif"))
+print(proyeccion$stats)
+plot(proyeccion$raster_cambio)
+raster::writeRaster(proyeccion$raster_cambio, 
+                    file.path("C:/CONABIO/ModelosDarwinUICN/acutiacuti/_rsfc45.tif"))
