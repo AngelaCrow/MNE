@@ -14,8 +14,10 @@ In `DataFormating.R` edit the following routes:
   `shapeLayer` 
   `covarDataFolder`
 
-# Tranferring species niche
-If you are modeling species niche under diferente conditions, you must modify:
+# Tranferring species niche in time
+Please use `DataFormating.R`, `Calibration.R`, `Projections.R`, `ENMEvaluation.R` and `RangeShift.R` for transferring models between geographic regions or periods in time.
+
+You must modify:
 - `covarAOIDataFolder_fc45`
 - `covarAOIDataFolder_fc85` 
 - `covarAOIDataFolder_fl45` 
