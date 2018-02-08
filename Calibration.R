@@ -35,7 +35,15 @@ sample.bg <- sample.int(
 selectedValues.bg <- rep(0, nrow(bg.df)) %>% inset(sample.bg, 1)
 
 bg.df$isTrain <- selectedValues.bg
-write.csv(bg.df, file = file.path(outputFolder, "background_points.csv"),
+
+sp::coordinates(bg.df) <- c("x", "y")
+sp::proj4string(bg.df) <- crs.wgs84
+bg.dfbio <- raster::extract(enviromentalVariables, bg.df) 
+
+bg.df<-as.data.frame(bg.df)
+bg.dfbio <- cbind(bg.df, bg.dfbio) %>% as.data.frame()
+
+write.csv(bg.dfbio, file = file.path(outputFolder, "background_points.csv"),
           row.names = FALSE)
 
 #training background
@@ -47,7 +55,7 @@ bg.df.cal <- bg.df %>%
 # ENMeval
 sp.models <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
                          fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                         method = "randomkfold", kfolds = 2, bin.output = TRUE,
+                         method = "randomkfold", kfolds = 4, bin.output = TRUE,
                          parallel = TRUE, numCores = parallel::detectCores()-1, 
                          updateProgress = TRUE)
 
@@ -64,6 +72,12 @@ modelsAIC0 <- resultados_enmeval %>%
   select(index, settings) %>%
   mutate(index = as.numeric(index), settings = as.character(settings))
 
+aic.opt <- sp.models@models[[which(sp.models@results$delta.AICc==0)]]
+importa <- var.importance(aic.opt)
+write.csv( importa, 
+           file = file.path(outputFolder, "varImportance.csv"),
+           row.names = FALSE)
+
 # save species niche (raw output) model over raster 
 saveRasterWithSettings <- function(models, predictions, prefix) {
   raster::writeRaster(predictions[[models["settings"]]],
@@ -75,3 +89,5 @@ saveRasterWithSettings <- function(models, predictions, prefix) {
 
 apply(modelsAIC0, 1, saveRasterWithSettings,
       predictions = sp.models@predictions, prefix = "ENM_prediction_M_raw_")
+
+rm(list=ls())

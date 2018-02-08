@@ -1,5 +1,5 @@
 ####ENMTest####
-source("funciones_LAE.R")
+#source("funciones_LAE.R")
 #Threslhold independent
 
 #AUC

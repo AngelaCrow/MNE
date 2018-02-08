@@ -24,6 +24,9 @@
 #' print(habitat_change$stats)
 #' }
 #' 
+
+setwd("C:/CONABIO/ModelosDarwinUICN/")
+######
 reportaFuturo <- function(raster_presente_bin, raster_futuro_bin){
   reclass_matrix <- matrix(c(0, 1, 0, 10), ncol=2)
   offset_raster <- raster::reclassify(raster_futuro_bin, reclass_matrix)
@@ -34,51 +37,52 @@ reportaFuturo <- function(raster_presente_bin, raster_futuro_bin){
               raster_cambio=result))
 }
 
-sp_models <- list.files(path = "acutiacuti",
-                        pattern = "*min_L_0.5.tif$",full.names = TRUE)
+sp_models <- list.files(path = "vulgasilvestre/Con_clamp_con_extra/",
+                        pattern = "*thresholded.asc$",full.names = TRUE)
 sp_models
-presente<-raster(sp_models[1]) 
+presente<-raster(sp_models[5]) 
 plot(presente)
 
-fc45bin<-raster(sp_models[2])
+fc45bin<-raster(sp_models[1])
 plot(fc45bin)
 proyeccion <- reportaFuturo(presente, fc45bin)
 statsfc45bin<-data.frame(proyeccion$stats)
-write.csv(statsfc45bin, "statsfc45bin.csv")
+write.csv(statsfc45bin, "vulgasilvestre/Con_clamp_con_extra/statsfc45bin.csv")
 plot(proyeccion$raster_cambio)
 raster::writeRaster(proyeccion$raster_cambio, 
-                    file.path("C:/CONABIO/ModelosDarwinUICN/acutiacuti/_rsfc45.tif"),
+                    file.path("C:/CONABIO/ModelosDarwinUICN/vulgasilvestre/Con_clamp_con_extra/vulgasilvestre_rsfc45.tif"),
                     overwrite = T)
 
 fc85bin<-raster(sp_models[3])
 plot(fc85bin)
 proyeccion <- reportaFuturo(presente, fc85bin)
 statsfc85bin<-data.frame(proyeccion$stats)
-write.csv(statsfc85bin, "statsfc85bin.csv")
+write.csv(statsfc85bin, "vulgasilvestre/Con_clamp_con_extra/statsfc85bin.csv")
 plot(proyeccion$raster_cambio)
 raster::writeRaster(proyeccion$raster_cambio, 
-                    file.path("C:/CONABIO/ModelosDarwinUICN/acutiacuti/_rsfc85.tif"),
+                    file.path("C:/CONABIO/ModelosDarwinUICN/vulgasilvestre/Con_clamp_con_extra/vulgasilvestre_rsfc85.tif"),
                     overwrite = T)
+sp_models
 
-fl45bin<-raster(sp_models[4])
+fl45bin<-raster(sp_models[2])
 plot(fl45bin)
 proyeccion <- reportaFuturo(presente, fl45bin)
 statsfl45bin<-data.frame(proyeccion$stats)
-write.csv(statsfl45bin, "statsfl45bin.csv")
+write.csv(statsfl45bin, "vulgasilvestre/Con_clamp_con_extra/statsfl45bin.csv")
 plot(proyeccion$raster_cambio)
 raster::writeRaster(proyeccion$raster_cambio, 
-                    file.path("C:/CONABIO/ModelosDarwinUICN/acutiacuti/_rsfl45.tif"),
+                    file.path("C:/CONABIO/ModelosDarwinUICN/vulgasilvestre/Con_clamp_con_extra/vulgasilvestre_rsfl45.tif"),
                     overwrite = T)
 
 
-fl85bin<-raster(sp_models[5])
+fl85bin<-raster(sp_models[4])
 plot(fl85bin)
 proyeccion <- reportaFuturo(presente, fl85bin)
 statsfl85bin<-data.frame(proyeccion$stats)
-write.csv(statsfl85bin, "statsfl85bin.csv")
+write.csv(statsfl85bin, "vulgasilvestre/Con_clamp_con_extra/Con_clamp_con_extrastatsfl85bin.csv")
 plot(proyeccion$raster_cambio)
 raster::writeRaster(proyeccion$raster_cambio, 
-                    file.path("C:/CONABIO/ModelosDarwinUICN/acutiacuti/_rsfl85.tif"),
+                    file.path("C:/CONABIO/ModelosDarwinUICN/vulgasilvestre/Con_clamp_con_extra/vulgasilvestre_rsfl85.tif"),
                     overwrite = T)
 
 
