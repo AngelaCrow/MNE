@@ -104,12 +104,14 @@ idsEcoRegions <- unique(ecoregionsOfInterest$ECO_ID)
 polygonsOfInterest <- regionalizacion[regionalizacion$ECO_ID %in% idsEcoRegions, ]
 writeOGR(polygonsOfInterest, layer = 'ecoregionsOI', outputFolder, driver="ESRI Shapefile")
 
-# Mask rasters with ecoregions of interest
+# Mask present rasters with ecoregions of interest
 selectedVariablesCrop <- raster::crop(selectedVariables, polygonsOfInterest)
-env <- raster::mask(selectedVariablesCrop, 
+env <- raster::mask(selectedVariablesCrop,
                     polygonsOfInterest) #Species variables delimited by M
+
+dir.create(file.path(outputFolder, "Presente"))
 writeRaster(env,
-            file.path(outputFolder, "covars.tif"), 
+            file.path(outputFolder, "Presente/.tif"),
             bylayer = T, suffix='names',
             overwrite = TRUE)
 
@@ -123,26 +125,37 @@ sampleDataPoints <- sample.int(
 selectedValues <- rep(0, nrow(covarData)) %>% inset(sampleDataPoints, 1)
 
 covarData$isTrain <- selectedValues
-write.csv(cbind(covarData@data, coordinates(covarData)), file.path(outputFolder, "speciesCovarDB.csv"),
+write.csv(cbind(covarData@data, coordinates(covarData)), file = file.path(outputFolder, 
+                                                                          paste0(outputFolder,
+                                                                                 "_",
+                                                                                 "presencias",
+                                                                                 ".csv")), 
           row.names = FALSE)
-
 # MAXENT calibration
 # We used ENMeval package to estimate optimal model complexity (Muscarrella et al. 2014)
 # Modeling process, first separate the calibration and validation data
 occsCalibracion <- covarData %>%
   as.data.frame() %>%
   dplyr::filter(isTrain == 1) %>%
-  dplyr::select(Dec_Long, Dec_Lat)
+  dplyr::select(Long, Lat)
+
+write.csv(occsCalibracion, file = file.path(outputFolder,paste0(outputFolder,
+                                                                "_","Calibracion",".csv")), 
+          row.names = FALSE)
 
 occsValidacion <- covarData %>%
   as.data.frame() %>%
   dplyr::filter(isTrain == 0) %>%
-  dplyr::select(Dec_Long, Dec_Lat) 
+  dplyr::select(Long, Lat)
+
+write.csv(occsValidacion, file = file.path(outputFolder,paste0(outputFolder,
+                                                               "_","Validacion",".csv")),
+          row.names = FALSE)
 
 # Background
 bg.df <- dismo::randomPoints(env[[1]], n = 10000) %>% as.data.frame()
 
-#Divide backgeound into train and test 
+#Divide backgeound into train and test
 sample.bg <- sample.int(
   nrow(bg.df),
   size = floor(0.7*nrow(bg.df))
@@ -150,26 +163,58 @@ sample.bg <- sample.int(
 selectedValues.bg <- rep(0, nrow(bg.df)) %>% inset(sample.bg, 1)
 
 bg.df$isTrain <- selectedValues.bg
-write.csv(bg.df, file = file.path(outputFolder, "background_points.csv"),
-          row.names = FALSE)
+
+sp::coordinates(bg.df) <- c("x", "y")
+sp::proj4string(bg.df) <- crs.wgs84
+bg.dfbio <- raster::extract(enviromentalVariables, bg.df)
+
+bg.df<-as.data.frame(bg.df)
+bg.dfbio <- cbind(bg.df, bg.dfbio) %>% as.data.frame()
+
+write.csv(bg.dfbio, file = file.path(outputFolder, paste0(outputFolder, 
+                                                          "_", 
+                                                          "background_points", 
+                                                          ".csv")))
 
 #training background
 bg.df.cal <- bg.df %>%
   dplyr::filter(isTrain == 1) %>%
   dplyr::select(x, y)
+write.csv(bg.df.cal, file = file.path(outputFolder,paste0(outputFolder,
+                                                          "_","back_calibracion",".csv")),
+          row.names = FALSE)
+
+#testing back
+bg.df.val <- bg.df %>%
+  dplyr::filter(isTrain == 0) %>%
+  dplyr::select(x, y)
+write.csv(bg.df.val, file = file.path(outputFolder,paste0(outputFolder,
+                                                          "_","back_validacion",".csv")),
+          row.names = FALSE)
 
 
 # ENMeval
 sp.models <- ENMevaluate(occsCalibracion, env, bg.df.cal, RMvalues = seq(0.5, 4, 0.5),
-                 fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
-                 method = "randomkfold", kfolds = 2, bin.output = TRUE,
-                 parallel = TRUE, numCores = parallel::detectCores()-1, 
-                 updateProgress = TRUE)
+                         fc = c("L", "LQ", "H", "LQH", "LQHP", "LQHPT"),
+                         method = "randomkfold", kfolds = 4, bin.output = TRUE,
+                         parallel = TRUE, numCores = parallel::detectCores()-1,
+                         updateProgress = TRUE)
 
 resultados_enmeval <- sp.models@results
+
+saveRDS(sp.models@models,
+        file=file.path(outputFolder,"Maxent_models.Rds"))
+
 write.csv(resultados_enmeval,
           file = file.path(outputFolder, "enmeval_results.csv"),
           row.names = FALSE)
+sp.models_p<-sp.models@predictions
+
+dir.create(file.path(outputFolder, "Outputs_todos"))
+writeRaster(sp.models_p,
+            file.path(outputFolder, "Outputs_todos/.tif"),
+            bylayer=TRUE, suffix='names',
+            overwrite= TRUE)
 
 # delta_aic <- which(resultados_enmeval$delta.AICc == 0)
 modelsAIC0 <- resultados_enmeval %>%
@@ -178,60 +223,27 @@ modelsAIC0 <- resultados_enmeval %>%
   select(index, settings) %>%
   mutate(index = as.numeric(index), settings = as.character(settings))
 
-# save species niche (raw output) model over raster 
+aic.opt <- sp.models@models[[which(sp.models@results$delta.AICc==0)]]
+importa <- var.importance(aic.opt)
+write.csv( importa,
+           file = file.path(outputFolder, "varImportance.csv"),
+           row.names = FALSE)
+
+# save species niche (raw output) model over raster
 saveRasterWithSettings <- function(models, predictions, prefix) {
   raster::writeRaster(predictions[[models["settings"]]],
-              file.path(outputFolder, paste0(prefix,
-                                             models["settings"],
-                                             ".tif")),
-              overwrite = TRUE)
+                      file.path(outputFolder, paste0(prefix,
+                                                     models["settings"],
+                                                     ".tif")),
+                      overwrite = TRUE)
 }
 
 apply(modelsAIC0, 1, saveRasterWithSettings,
       predictions = sp.models@predictions, prefix = "ENM_prediction_M_raw_")
 
-#### Projection ####
-# predict choicemodel over current climate variables
-predictAndSave <- function(model, models, data, prefix, occs) {
-  choicedModel <- models[[as.integer(model["index"])]]
-  predictions <- dismo::predict(choicedModel, data)
-  raster::writeRaster(predictions,
-                      file.path(outputFolder, paste0(prefix,
-                                                     "log_",
-                                                     model["settings"],
-                                                     ".tif")),
-                      overwrite = TRUE)
-
-#Threshold prediction using minimum traning (min) and 10 percentil (q10) values  
-  occsValues <- raster::extract(predictions, occs)
-  minValOcc <- min(occsValues, na.rm = TRUE)
-  raster::writeRaster(reclassify(predictions,
-                                 c(-Inf, minValOcc, 0, minValOcc, Inf, 1)),
-                      file.path(outputFolder, paste0(prefix,
-                                                     "bin_min_",
-                                                     model["settings"],
-                                                     ".tif")),
-                      overwrite = TRUE)
-
-  q10ValOcc <- quantile(occsValues, 0.1, na.rm = TRUE)
-  raster::writeRaster(reclassify(predictions,
-                                 c(-Inf, q10ValOcc, 0, q10ValOcc, Inf, 1)),
-                      file.path(outputFolder, paste0(prefix,
-                                                     "bin_q10_",
-                                                     model["settings"],
-                                                     ".tif")),
-                      overwrite = TRUE)
-}
-
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp.models@models, data = env, prefix = "ENM_prediction_M_",
-      occs = occsCalibracion)
-
-apply(modelsAIC0, 1, predictAndSave,
-      models = sp.models@models, data = selectedVariablesAOI, prefix = "ENM_",
-      occs = occsCalibracion)
 
 ####ENMTest####
+#source("funciones_LAE.R")
 #Threslhold independent
 
 #AUC
@@ -257,16 +269,16 @@ aucStatistcs <- function(model, models, env, occs, bgPoints) {
   env = env,
   occs = occs,
   bgPoints = bgPoints)
-
+  
   result <- data.frame(
     matrix(unlist(result), nrow = nrow(model), byrow = TRUE),
     stringsAsFactors = FALSE
-    )
-
+  )
+  
   names(result) <- c("settings", "AUC")
-
+  
   result <- result %>% mutate(AUC = as.numeric(AUC))
-
+  
   return(result)
 }
 
@@ -281,3 +293,51 @@ write.csv(resultsAUC,
           file = file.path(outputFolder, "data_auc.csv"),
           row.names = FALSE)
 
+#### Projections ####
+# predict choicemodel over current climate variables
+predictAndSave <- function(model, models, data, prefix, occs) {
+  choicedModel <- models[[as.integer(model["index"])]]
+  predictions <- dismo::predict(choicedModel, data)
+  raster::writeRaster(predictions,
+                      file.path(outputFolder, paste0(prefix,
+                                                     "log_",
+                                                     model["settings"],
+                                                     "_",
+                                                     outputFolder,
+                                                     "_",
+                                                     ".tif")),
+                      overwrite = TRUE)
+  
+  #Threshold prection using minimum traning (min) and 10 percentil (q10) values
+  occsValues <- raster::extract(predictions, occs)
+  
+  minValOcc <- min(occsValues, na.rm = TRUE)
+  raster::writeRaster(reclassify(predictions,
+                                 c(-Inf, minValOcc, 0, minValOcc, Inf, 1)),
+                      file.path(outputFolder, paste0(prefix,
+                                                     "bin_min_",
+                                                     model["settings"],
+                                                     "_",
+                                                     outputFolder,
+                                                     "_",
+                                                     ".tif")),
+                      overwrite = TRUE)
+  
+  q10ValOcc <- quantile(occsValues, 0.1, na.rm = TRUE)
+  raster::writeRaster(reclassify(predictions,
+                                 c(-Inf, q10ValOcc, 0, q10ValOcc, Inf, 1)),
+                      file.path(outputFolder, paste0(prefix,
+                                                     "bin_q10_",
+                                                     model["settings"],
+                                                     "_",
+                                                     outputFolder,
+                                                     "_",
+                                                     ".tif")),
+                      overwrite = TRUE)
+}
+
+
+# log
+apply(modelsAIC0, 1, predictAndSave,
+      models = sp.models@models, data = env, prefix = "ENM_",
+      occs = occsCalibracion)
