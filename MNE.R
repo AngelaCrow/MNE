@@ -211,9 +211,10 @@ write.csv(resultados_enmeval,
 sp.models_p<-sp.models@predictions
 
 dir.create(file.path(outputFolder, "Outputs_todos"))
-writeRaster(sp.models_p,
-            file.path(outputFolder, "Outputs_todos/.tif"),
-            bylayer=TRUE, suffix='names',
+writeRaster(sp.models_p, file = file.path(outputFolder, "Outputs_todos/", paste0(outputFolder)), 
+            suffix='names',
+            format = "GTiff",
+            bylayer=TRUE, 
             overwrite= TRUE)
 
 # delta_aic <- which(resultados_enmeval$delta.AICc == 0)
