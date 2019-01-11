@@ -1,15 +1,12 @@
-# ModelosDarwinUICN
-
-This project is develop by Juan M. Barrios <j.m.barrios@gmail.com> and Angela P. 
+# MNE
+Este codigo fue generardo por Juan M. Barrios <j.m.barrios@gmail.com> y Angela P. 
 Cuervo-Robayo <acuervo@gmail.com>.
 
-The main goal is process species occurrence data to generate Ecological Niche Models,
-the `MNE.R` script is the responsible of this task. 
+Para modelar las condiciones actuales de las especies puede utlizar el `MNE.R`. Este código esta en constante actualización. 
 
-# Tranferring species niche in time
-Please use `DataFormating.R`, `Calibration.R`, `Projections.R`, `ENMEvaluation.R` and `RangeShift.R` for transferring models between geographic regions or periods in time.
+Para hacer transferencias en tiempo o área use `DataFormating.R`, `Calibration.R`, `Projections.R`, `ENMEvaluation.R` and `RangeShift.R` for transferring models between geographic regions or periods in time.
 
-You must modify:
+Solo debe moficar las variables a las que va a transferir. 
 - `covarAOIDataFolder_fc45`
 - `covarAOIDataFolder_fc85` 
 - `covarAOIDataFolder_fl45` 
